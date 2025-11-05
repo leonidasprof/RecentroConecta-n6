@@ -1,30 +1,42 @@
-# RecentroConecta
+# 🏛️ RECENTRO CONECTA - Plataforma Digital do Parque de Esculturas Francisco Brennand
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
+## 🧭 Visão Geral do Projeto
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/leonidasprofs-projects/v0-recentro-conecta-prototype)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/q4pbDqpUo7e)
+O **Recentro Conecta** é a solução digital desenvolvida para modernizar a gestão e a experiência do visitante no Parque de Esculturas Francisco Brennand, em Recife.
 
-## Overview
+Nosso principal objetivo é transformar a **falta de dados e a comunicação informal** do parque em um sistema centralizado, acessível e baseado em evidências.
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+### 👥 Foco no Usuário (Persona)
 
-## Deployment
+* **Público-Alvo:** Visitantes do parque, com foco na **Persona Antônia Gusmão** (usabilidade e acessibilidade são prioridade).
+* **Valor Entregue:** Oferecer informações de status (maré, horários) em tempo real, acesso a conteúdo interativo via QR Code e um canal eficiente de feedback.
 
-Your project is live at:
+### ⚙️ Metodologia e Escopo
 
-**[https://vercel.com/leonidasprofs-projects/v0-recentro-conecta-prototype](https://vercel.com/leonidasprofs-projects/v0-recentro-conecta-prototype)**
+* **Metodologia:** Scrum (Sprints de 2 semanas).
+* **MVP (Produto Mínimo Viável):** A funcionalidade central deste protótipo é a **Gestão de Acesso (Check-in)** e o **Módulo de Consulta Interativa via QR Code**.
+* **Tecnologias de Simulação:** O protótipo foi inicialmente desenvolvido utilizando a ferramenta v0.app para simular rapidamente a interface e os fluxos críticos de UX/UI.
 
-## Build your app
+---
 
-Continue building your app on:
+## 🚀 Status e Implantação do Protótipo
 
-**[https://v0.app/chat/q4pbDqpUo7e](https://v0.app/chat/q4pbDqpUo7e)**
+Este repositório contém o código fonte do protótipo de baixa fidelidade do Recentro Conecta. Ele é mantido sincronizado com nossa plataforma de prototipação.
 
-## How It Works
+### 🌐 Aplicação Online (Vercel Deployment)
 
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+O protótipo mais recente está implantado e pode ser acessado em:
+[https://vercel.com/leonidasprofs-projects/v0-recentro-conecta-prototype](https://vercel.com/leonidasprofs-projects/v0-recentro-conecta-prototype)
+
+### 🛠️ Próximos Passos (Próxima Sprint)
+
+Nosso foco é evoluir este protótipo de baixa fidelidade para uma versão de alta fidelidade na próxima Sprint, integrando-o ao nosso modelo de Banco de Dados.
+
+---
+
+### **Instruções de Desenvolvimento (Para o Time)**
+
+Este repositório é a fonte de verdade para a implantação na Vercel.
+
+* **Desenvolvimento:** Continue o desenvolvimento e refinamento do código através da interface do v0.app, para que as alterações sejam sincronizadas automaticamente.
+* **Sincronização:** Quaisquer alterações validadas na Sprint Review serão enviadas automaticamente para este repositório a partir do v0.app.
