@@ -22,6 +22,7 @@ import {
 import TicketModal from "@/components/ticket-modal"
 import LoginModal from "@/components/login-modal"
 import VisitBookingModal from "@/components/visit-booking-modal"
+import { getSupabase } from "@/lib/supabase"
 
 export default function RecentroConecta() {
   const [currentScreen, setCurrentScreen] = useState("home")
@@ -63,10 +64,26 @@ export default function RecentroConecta() {
   }, [])
 
   useEffect(() => {
-    const savedStatus = localStorage.getItem("parkStatus")
-    if (savedStatus !== null) {
-      setParkOpen(savedStatus === "true")
+    const loadParkStatus = async () => {
+      const supabase = getSupabase()
+      const { data, error } = await supabase.from("park_settings").select("is_open").single()
+
+      if (data && !error) {
+        setParkOpen(data.is_open)
+      } else {
+        // Fallback to localStorage
+        const savedStatus = localStorage.getItem("parkStatus")
+        if (savedStatus !== null) {
+          setParkOpen(savedStatus === "true")
+        }
+      }
     }
+
+    loadParkStatus()
+
+    // Poll for updates every 30 seconds
+    const interval = setInterval(loadParkStatus, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   const renderHomeScreen = () => (
@@ -186,37 +203,42 @@ export default function RecentroConecta() {
           </div>
         </div>
 
-        {/* Section 2: Park Status with Brennand */}
         <div className="mb-8">
           <Card
             className={`modern-card animate-fade-in border-2 ${parkOpen ? "border-emerald-200" : "border-red-200"}`}
           >
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <Image
-                    src={parkOpen ? "/images/brennand-happy.png" : "/images/brennand-sad.png"}
-                    alt={parkOpen ? "Brennand de braços abertos" : "Brennand triste"}
-                    width={100}
-                    height={100}
-                    className="rounded-lg"
-                  />
-                  <div>
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-6">
+                {/* Left side: Status with Brennand image */}
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+                  <div className="flex-shrink-0">
+                    <Image
+                      src={parkOpen ? "/images/brennand-happy.png" : "/images/brennand-sad.png"}
+                      alt={parkOpen ? "Brennand de braços abertos" : "Brennand triste"}
+                      width={120}
+                      height={120}
+                      className="rounded-lg object-contain"
+                    />
+                  </div>
+                  <div className="text-center sm:text-left">
                     {parkOpen ? (
                       <>
-                        <div className="flex items-center gap-3 mb-2">
+                        <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
                           <div className="w-4 h-4 bg-emerald-500 rounded-full animate-pulse-color"></div>
                           <span className="text-2xl md:text-3xl text-emerald-600 font-bold">ABERTO</span>
                         </div>
-                        <Badge variant="secondary" className="text-base px-3 py-1 bg-emerald-100 text-emerald-800">
+                        <Badge
+                          variant="secondary"
+                          className="text-sm md:text-base px-3 py-1 bg-emerald-100 text-emerald-800"
+                        >
                           Hoje: 8h às 17h
                         </Badge>
                       </>
                     ) : (
                       <>
-                        <div className="flex items-center gap-3 mb-2">
+                        <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
                           <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-                          <span className="text-xl md:text-2xl text-red-600 font-bold">TEMPORARIAMENTE FECHADO</span>
+                          <span className="text-lg md:text-2xl text-red-600 font-bold">TEMPORARIAMENTE FECHADO</span>
                         </div>
                         <p className="text-sm text-red-700">O parque está temporariamente fechado para visitação</p>
                       </>
@@ -224,14 +246,15 @@ export default function RecentroConecta() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6">
-                  <div className="text-center">
-                    <p className="text-xs text-slate-600">Maré Alta</p>
-                    <p className="text-lg font-bold text-blue-600">14:30</p>
+                {/* Right side: Tide information */}
+                <div className="flex items-center gap-4 md:gap-6 w-full lg:w-auto justify-center lg:justify-end">
+                  <div className="text-center bg-blue-50 px-4 py-3 rounded-lg">
+                    <p className="text-xs text-slate-600 mb-1">Maré Alta</p>
+                    <p className="text-lg md:text-xl font-bold text-blue-600">14:30</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-xs text-slate-600">Maré Baixa</p>
-                    <p className="text-lg font-bold text-blue-600">20:45</p>
+                  <div className="text-center bg-blue-50 px-4 py-3 rounded-lg">
+                    <p className="text-xs text-slate-600 mb-1">Maré Baixa</p>
+                    <p className="text-lg md:text-xl font-bold text-blue-600">20:45</p>
                   </div>
                 </div>
               </div>

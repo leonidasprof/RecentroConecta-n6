@@ -53,6 +53,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { getSupabase } from "@/lib/supabase"
 
 export default function AdminDashboard() {
   const [newEmployee, setNewEmployee] = useState({ name: "", email: "", role: "" })
@@ -79,13 +80,38 @@ export default function AdminDashboard() {
   const [parkOpen, setParkOpen] = useState(true)
 
   useEffect(() => {
-    const savedStatus = localStorage.getItem("parkStatus")
-    if (savedStatus !== null) {
-      setParkOpen(savedStatus === "true")
+    const loadParkStatus = async () => {
+      const supabase = getSupabase()
+      const { data, error } = await supabase.from("park_settings").select("is_open").single()
+
+      if (data && !error) {
+        setParkOpen(data.is_open)
+      } else {
+        // Fallback to localStorage if Supabase fails
+        const savedStatus = localStorage.getItem("parkStatus")
+        if (savedStatus !== null) {
+          setParkOpen(savedStatus === "true")
+        }
+      }
     }
+
+    loadParkStatus()
   }, [])
 
-  const handleSaveParkStatus = () => {
+  const handleSaveParkStatus = async () => {
+    const supabase = getSupabase()
+    const { error } = await supabase
+      .from("park_settings")
+      .update({ is_open: parkOpen, updated_at: new Date().toISOString() })
+      .eq("id", 1)
+
+    if (error) {
+      console.error("[v0] Error saving park status:", error)
+      alert("Erro ao salvar status do parque. Tente novamente.")
+      return
+    }
+
+    // Also save to localStorage for immediate UI update
     localStorage.setItem("parkStatus", parkOpen.toString())
     alert(`Status do parque salvo com sucesso!\n\nO parque está agora: ${parkOpen ? "ABERTO" : "FECHADO"}`)
   }
@@ -266,19 +292,81 @@ export default function AdminDashboard() {
     }, 2000)
   }
 
-  const handleCreateSculpture = (e: React.FormEvent) => {
-    e.preventDefault()
-    const newCode = `ESC${String(sculptures.length + 1).padStart(3, "0")}`
-    const sculptureData = {
-      id: sculptures.length + 1,
-      code: newCode,
-      name: newSculpture.name,
-      description: newSculpture.description,
-      curiosity: newSculpture.curiosity,
+  useEffect(() => {
+    const loadSculptures = async () => {
+      const supabase = getSupabase()
+      const { data, error } = await supabase.from("sculptures").select("*").order("code", { ascending: true })
+
+      if (data && !error) {
+        setSculptures(
+          data.map((s) => ({
+            id: s.id,
+            code: s.code,
+            name: s.name,
+            description: s.description,
+            curiosity: s.curiosity,
+          })),
+        )
+      }
     }
-    setSculptures([...sculptures, sculptureData])
-    alert(`Escultura cadastrada!\nCódigo: ${newCode}\nNome: ${newSculpture.name}`)
-    setNewSculpture({ name: "", description: "", curiosity: "" })
+
+    loadSculptures()
+  }, [])
+
+  const handleCreateSculpture = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const supabase = getSupabase()
+
+    // Get the next code number
+    const { data: existingSculptures } = await supabase
+      .from("sculptures")
+      .select("code")
+      .order("code", { ascending: false })
+      .limit(1)
+
+    let nextNumber = 1
+    if (existingSculptures && existingSculptures.length > 0) {
+      const lastCode = existingSculptures[0].code
+      const match = lastCode.match(/ESC(\d+)/)
+      if (match) {
+        nextNumber = Number.parseInt(match[1]) + 1
+      }
+    }
+
+    const newCode = `ESC${String(nextNumber).padStart(3, "0")}`
+
+    const { data, error } = await supabase
+      .from("sculptures")
+      .insert({
+        code: newCode,
+        name: newSculpture.name,
+        description: newSculpture.description,
+        curiosity: newSculpture.curiosity,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error("[v0] Error creating sculpture:", error)
+      alert("Erro ao cadastrar escultura. Tente novamente.")
+      return
+    }
+
+    if (data) {
+      setSculptures([
+        ...sculptures,
+        {
+          id: data.id,
+          code: data.code,
+          name: data.name,
+          description: data.description,
+          curiosity: data.curiosity,
+        },
+      ])
+      alert(`Escultura cadastrada!\nCódigo: ${newCode}\nNome: ${newSculpture.name}`)
+      setNewSculpture({ name: "", description: "", curiosity: "" })
+    }
   }
 
   const renderPieLabel = (entry: any) => {
