@@ -45,19 +45,20 @@ export default function QrScanner({ onScan, onClose }: QrScannerProps) {
         {
           fps: 10, // Frames per second
           qrbox: { width: 250, height: 250 }, // Scanning box size
+          aspectRatio: 1.0, // Square aspect ratio
         },
         (decodedText) => {
-          console.log("[v0] QR Code scanned:", decodedText)
+          console.log("[v0] QR Code scanned successfully:", decodedText)
           onScan(decodedText)
           stopScanning()
         },
         (errorMessage) => {
-          // console.log("[v0] QR Scan error:", errorMessage)
+          // Ignore scanning errors - they're too verbose
         },
       )
     } catch (err) {
       console.error("[v0] Error starting scanner:", err)
-      setError("Não foi possível acessar a câmera. Verifique as permissões.")
+      setError("Não foi possível acessar a câmera. Verifique as permissões do navegador.")
       setIsScanning(false)
     }
   }

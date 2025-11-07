@@ -176,6 +176,7 @@ export default function AdminDashboard() {
       name: "Coluna de Cristal",
       description: "Escultura em bronze",
       curiosity: "Pesa 2 toneladas",
+      image_url: "/images/sculptures-1.jpeg",
     },
     {
       id: 2,
@@ -183,6 +184,7 @@ export default function AdminDashboard() {
       name: "Monumento aos Náufragos",
       description: "Homenagem aos navegadores",
       curiosity: "Inaugurada em 2000",
+      image_url: "/images/sculptures-2.jpeg",
     },
   ])
 
@@ -479,33 +481,95 @@ export default function AdminDashboard() {
   const handleStartScanner = () => {
     setShowQrScanner(true)
     setScanResult(null)
+    setScannerActive(true) // Start scanner animation/feedback immediately
   }
 
   // QR scan handler
   const handleQrScan = async (qrCode: string) => {
+    console.log("[v0] QR Code scanned:", qrCode)
+
     try {
-      const response = await fetch("/api/tickets/validate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ qrCode }),
-      })
+      setShowQrScanner(false) // Hide the scanner UI (webcam view)
+      setScannerActive(true) // Keep animation/feedback active while processing
 
-      const result = await response.json()
-      setScanResult(result)
-      setShowQrScanner(false)
+      // Check if it's a ticket or booking
+      const supabase = getSupabase()
 
-      if (result.valid) {
-        await loadTickets()
+      // Try to find in tickets table
+      const { data: ticketData, error: ticketError } = await supabase
+        .from("tickets")
+        .select("*")
+        .eq("id", qrCode)
+        .single()
+
+      if (ticketData && !ticketError) {
+        // Found a ticket
+        const isValid = !ticketData.validated_at
+        const ticketDate = new Date(ticketData.created_at).toLocaleDateString("pt-BR")
+
+        if (isValid) {
+          // Mark as validated
+          await supabase.from("tickets").update({ validated_at: new Date().toISOString() }).eq("id", qrCode)
+        }
+
+        setLastScannedTicket({
+          valid: isValid,
+          type: "individual",
+          name: ticketData.visitor_name || "Visitante",
+          date: ticketDate,
+          alreadyUsed: !isValid,
+        })
+        setScannerActive(false)
+        return
       }
-    } catch (error) {
-      console.error("[v0] Error validating ticket:", error)
-      setScanResult({
+
+      // Try to find in bookings table
+      const { data: bookingData, error: bookingError } = await supabase
+        .from("bookings")
+        .select("*")
+        .eq("id", qrCode)
+        .single()
+
+      if (bookingData && !bookingError) {
+        // Found a booking
+        const isValid = !bookingData.validated_at
+        const bookingDate = new Date(bookingData.visit_date).toLocaleDateString("pt-BR")
+
+        if (isValid) {
+          // Mark as validated
+          await supabase.from("bookings").update({ validated_at: new Date().toISOString() }).eq("id", qrCode)
+        }
+
+        setLastScannedTicket({
+          valid: isValid,
+          type: "agendamento",
+          name: bookingData.organization_name || "Organização",
+          date: bookingDate,
+          alreadyUsed: !isValid,
+        })
+        setScannerActive(false)
+        return
+      }
+
+      // Not found in either table
+      setLastScannedTicket({
         valid: false,
-        error: "Erro ao validar ingresso",
+        type: "unknown", // Indicate it wasn't found in known types
+        name: "Ingresso/Agendamento não encontrado",
+        date: new Date().toLocaleDateString("pt-BR"),
+        alreadyUsed: false,
       })
-      setShowQrScanner(false)
+      setScannerActive(false)
+    } catch (error) {
+      console.error("[v0] Error validating QR code:", error)
+      setLastScannedTicket({
+        valid: false,
+        type: "error", // Indicate a processing error
+        name: "Erro na validação",
+        date: new Date().toLocaleDateString("pt-BR"),
+        alreadyUsed: false,
+      })
+      setScannerActive(false)
     }
   }
 
@@ -522,6 +586,7 @@ export default function AdminDashboard() {
             name: s.name,
             description: s.description,
             curiosity: s.curiosity,
+            image_url: s.image_url || "/images/placeholder.png", // Use placeholder if null
           })),
         )
       }
@@ -556,7 +621,7 @@ export default function AdminDashboard() {
     const newCode = `ESC${String(nextNumber).padStart(3, "0")}`
 
     // TODO: Upload image to storage if sculptureImage exists
-    const imageUrl = null
+    const imageUrl = "/images/sculptures-1.jpeg" // Default placeholder image for now
     if (sculptureImage) {
       // In a real implementation, upload to Supabase Storage or Vercel Blob
       console.log("[v0] Would upload image:", sculptureImage.name)
@@ -581,7 +646,7 @@ export default function AdminDashboard() {
     }
 
     if (data) {
-      setSculptures([
+      const updatedSculptures = [
         ...sculptures,
         {
           id: data.id,
@@ -589,11 +654,20 @@ export default function AdminDashboard() {
           name: data.name,
           description: data.description,
           curiosity: data.curiosity,
+          image_url: data.image_url,
         },
-      ])
-      alert(`Escultura cadastrada!\nCódigo: ${newCode}\nNome: ${newSculpture.name}`)
+      ]
+      setSculptures(updatedSculptures)
+
+      alert(`Escultura cadastrada com sucesso!\nCódigo: ${newCode}\nNome: ${newSculpture.name}`)
+
       setNewSculpture({ name: "", description: "", curiosity: "" })
-      setSculptureImage(null) // Reset image state
+      setSculptureImage(null)
+
+      const fileInput = document.getElementById("sculpture-image") as HTMLInputElement
+      if (fileInput) {
+        fileInput.value = ""
+      }
     }
   }
 
@@ -645,6 +719,7 @@ export default function AdminDashboard() {
                 name: data.name,
                 description: data.description,
                 curiosity: data.curiosity,
+                image_url: data.image_url,
               }
             : s,
         ),
@@ -1801,16 +1876,20 @@ export default function AdminDashboard() {
                       <div className="space-y-2 bg-white/50 p-4 rounded-lg">
                         <p className="text-base">
                           <strong>Tipo:</strong>{" "}
-                          {lastScannedTicket.type === "individual" ? "Individual" : "Agendamento"}
+                          {lastScannedTicket.type === "individual"
+                            ? "Ingresso Individual"
+                            : lastScannedTicket.type === "agendamento"
+                              ? "Agendamento"
+                              : "Desconhecido"}
                         </p>
                         <p className="text-base">
-                          <strong>Nome:</strong> {lastScannedTicket.name}
+                          <strong>Nome/Organização:</strong> {lastScannedTicket.name}
                         </p>
                         <p className="text-base">
                           <strong>Data:</strong> {lastScannedTicket.date}
                         </p>
                         {lastScannedTicket.alreadyUsed && (
-                          <p className="text-yellow-800 font-semibold">Este ingresso já foi utilizado.</p>
+                          <p className="text-yellow-800 font-semibold">Este ingresso/agendamento já foi utilizado.</p>
                         )}
                       </div>
                     </div>
@@ -2002,7 +2081,9 @@ export default function AdminDashboard() {
                   <h4 className="font-semibold text-lg">Lista de Visitantes</h4>
                   {!editingBooking && (
                     <Button
-                      onClick={() => setEditingBooking({ ...selectedBooking })}
+                      onClick={() =>
+                        setEditingBooking({ ...selectedBooking, visitors: selectedBooking.visitors || [] })
+                      }
                       className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       <Edit2 className="w-4 h-4 mr-2" />
@@ -2013,7 +2094,7 @@ export default function AdminDashboard() {
 
                 {editingBooking ? (
                   <div className="space-y-4">
-                    {editingBooking.visitors?.map((visitor: any, index: number) => (
+                    {(editingBooking.visitors || []).map((visitor: any, index: number) => (
                       <div key={index} className="border-2 border-slate-200 rounded-lg p-4 bg-slate-50">
                         <div className="flex items-center justify-between mb-3">
                           <span className="font-semibold text-slate-700">Visitante {index + 1}</span>
@@ -2099,8 +2180,8 @@ export default function AdminDashboard() {
                         const newVisitor = { id: Date.now().toString(), name: "", age: "", cpf_rg: "", contact: "" }
                         setEditingBooking({
                           ...editingBooking,
-                          visitors: [...editingBooking.visitors, newVisitor],
-                          number_of_people: editingBooking.visitors.length + 1,
+                          visitors: [...(editingBooking.visitors || []), newVisitor],
+                          number_of_people: (editingBooking.visitors || []).length + 1,
                         })
                       }}
                       variant="outline"
@@ -2154,7 +2235,7 @@ export default function AdminDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {selectedBooking.visitors?.map((visitor: any, index: number) => (
+                    {(selectedBooking.visitors || []).map((visitor: any, index: number) => (
                       <div key={index} className="p-3 bg-slate-50 rounded border border-slate-200">
                         <p className="font-semibold">
                           {index + 1}. {visitor.name}

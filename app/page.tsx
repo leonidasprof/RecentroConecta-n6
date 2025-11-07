@@ -18,7 +18,6 @@ import {
   Youtube,
   Languages,
   Palette,
-  Info,
 } from "lucide-react"
 import TicketModal from "@/components/ticket-modal"
 import LoginModal from "@/components/login-modal"
@@ -94,6 +93,25 @@ export default function RecentroConecta() {
     return () => clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    const checkParkHours = () => {
+      const now = new Date()
+      const hours = now.getHours()
+      const minutes = now.getMinutes()
+      const currentTime = hours * 60 + minutes // Convert to minutes
+      const closingTime = 16 * 60 + 40 // 16:40 in minutes
+
+      if (currentTime >= closingTime) {
+        setParkOpen(false)
+      }
+    }
+
+    checkParkHours()
+    const interval = setInterval(checkParkHours, 60000) // Check every minute
+
+    return () => clearInterval(interval)
+  }, [])
+
   const handleSculptureScan = async (sculptureCode: string) => {
     const supabase = getSupabase()
     const { data, error } = await supabase.from("sculptures").select("*").eq("code", sculptureCode).single()
@@ -155,8 +173,16 @@ export default function RecentroConecta() {
                         setShowLoginModal(true)
                         setShowMenu(false)
                       }}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors"
+                      className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-2"
                     >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                        />
+                      </svg>
                       Entrar
                     </button>
                     <button
@@ -181,6 +207,16 @@ export default function RecentroConecta() {
                     </button>
                     <button
                       onClick={() => {
+                        setShowAboutModal(true)
+                        setShowMenu(false)
+                      }}
+                      className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-2"
+                    >
+                      <Palette className="w-4 h-4" />
+                      Sobre o Parque
+                    </button>
+                    <button
+                      onClick={() => {
                         setLanguage(language === "pt" ? "en" : "pt")
                         setShowMenu(false)
                       }}
@@ -188,17 +224,6 @@ export default function RecentroConecta() {
                     >
                       <Languages className="w-4 h-4" />
                       {language === "pt" ? "English" : "Português"}
-                    </button>
-                    {/* Add button for about modal */}
-                    <button
-                      onClick={() => {
-                        setShowAboutModal(true)
-                        setShowMenu(false)
-                      }}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-2"
-                    >
-                      <Info className="w-4 h-4" />
-                      Sobre
                     </button>
                   </div>
                 )}
@@ -245,6 +270,7 @@ export default function RecentroConecta() {
           </div>
         </div>
 
+        {/* Section 2: Park Status */}
         <div className="mb-8">
           <Card
             className={`modern-card animate-fade-in border-2 ${parkOpen ? "border-emerald-200" : "border-red-200"}`}
@@ -280,12 +306,10 @@ export default function RecentroConecta() {
                         <div className="flex items-center justify-center sm:justify-start gap-3 mb-3">
                           <div className="w-4 h-4 bg-red-500 rounded-full"></div>
                           <span className="text-xl md:text-2xl lg:text-3xl text-red-600 font-bold">
-                            TEMPORARIAMENTE FECHADO
+                            HORÁRIO DE FUNCIONAMENTO ENCERRADO
                           </span>
                         </div>
-                        <p className="text-sm md:text-base text-red-700">
-                          O parque está temporariamente fechado para visitação
-                        </p>
+                        <p className="text-sm md:text-base text-red-700">O parque está fechado para visitação</p>
                       </>
                     )}
                   </div>
@@ -340,15 +364,6 @@ export default function RecentroConecta() {
             >
               <QrCode className="w-5 h-5" />
               Ingresso
-            </Button>
-
-            {/* Add button for about modal */}
-            <Button
-              onClick={() => setShowAboutModal(true)}
-              className="h-20 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white modern-button text-base flex items-center justify-center gap-2"
-            >
-              <Info className="w-5 h-5" />
-              Sobre
             </Button>
           </div>
         </div>

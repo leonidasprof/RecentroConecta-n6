@@ -58,7 +58,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
             {/* Left side: Image */}
             <div className="relative w-full md:w-1/2 h-64 md:h-auto flex-shrink-0">
               <Image
-                src="/images/sobre-parque.jpeg"
+                src="/images/sobre-parque.png"
                 alt="Vista aérea do Parque de Esculturas"
                 fill
                 className="object-cover"
