@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Heart, Info } from "lucide-react"
+import { Heart, Info, Package } from "lucide-react"
 
 interface Sculpture {
   id: string
@@ -11,25 +11,25 @@ interface Sculpture {
   name: string
   description: string
   curiosity: string
+  image_url?: string
 }
 
 export default function SculpturePublicView({ sculpture }: { sculpture: Sculpture }) {
   const [likes, setLikes] = useState(0)
   const [userLiked, setUserLiked] = useState(false)
 
-  const handleLike = async () => {
+  const handleLike = async (rating: number) => {
     if (userLiked) return
 
     try {
-      // Save like to database (we'll create this API route)
       const response = await fetch("/api/sculptures/like", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sculptureId: sculpture.id }),
+        body: JSON.stringify({ sculptureId: sculpture.id, rating }),
       })
 
       if (response.ok) {
-        setLikes(likes + 1)
+        setLikes(rating)
         setUserLiked(true)
       }
     } catch (error) {
@@ -41,13 +41,22 @@ export default function SculpturePublicView({ sculpture }: { sculpture: Sculptur
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-blue-100 to-cyan-100 p-4">
       <div className="max-w-2xl mx-auto py-8">
         <Card className="overflow-hidden shadow-2xl">
-          <div className="relative h-64 bg-gradient-to-br from-purple-200 to-blue-200 flex items-center justify-center">
-            <img
-              src={`/.jpg?height=256&width=512&query=${encodeURIComponent(sculpture.name)}`}
-              alt={sculpture.name}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full">
+          <div className="relative h-80 bg-gradient-to-br from-purple-200 to-blue-200 flex items-center justify-center">
+            {sculpture.image_url ? (
+              <img
+                src={sculpture.image_url || "/placeholder.svg"}
+                alt={sculpture.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = `/placeholder.svg?height=320&width=512&query=${encodeURIComponent(sculpture.name)}`
+                }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-100 to-orange-100">
+                <Package className="w-32 h-32 text-amber-400" />
+              </div>
+            )}
+            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full shadow-lg">
               <span className="text-sm font-mono font-bold text-purple-700">
                 ESC{String(sculpture.code).padStart(3, "0")}
               </span>
@@ -74,7 +83,7 @@ export default function SculpturePublicView({ sculpture }: { sculpture: Sculptur
                 {[1, 2, 3, 4].map((heart) => (
                   <Button
                     key={heart}
-                    onClick={handleLike}
+                    onClick={() => handleLike(heart)}
                     disabled={userLiked}
                     variant="outline"
                     size="lg"
@@ -90,7 +99,7 @@ export default function SculpturePublicView({ sculpture }: { sculpture: Sculptur
               </div>
               {userLiked && (
                 <p className="text-center text-sm text-green-600 font-semibold mt-4">
-                  ✓ Obrigado por avaliar esta escultura!
+                  ✓ Obrigado por avaliar esta escultura com {likes} {likes === 1 ? "coração" : "corações"}!
                 </p>
               )}
             </div>

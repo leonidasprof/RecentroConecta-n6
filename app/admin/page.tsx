@@ -76,6 +76,7 @@ const getPartnerIcon = (organization: string) => {
 const generateQRCodeUrl = (sculptureId: string) => {
   const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
   const sculptureUrl = `${baseUrl}/escultura/${sculptureId}`
+  // Using a QR code generator API
   return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(sculptureUrl)}`
 }
 
@@ -329,24 +330,7 @@ export default function AdminDashboard() {
 
   const [sculptureImage, setSculptureImage] = useState<File | null>(null) // Added for image upload
 
-  const [sculptures, setSculptures] = useState([
-    {
-      id: 1,
-      code: "ESC001",
-      name: "Coluna de Cristal",
-      description: "Escultura em bronze",
-      curiosity: "Pesa 2 toneladas",
-      image_url: "/images/sculptures-1.jpeg",
-    },
-    {
-      id: 2,
-      code: "ESC002",
-      name: "Monumento aos Náufragos",
-      description: "Homenagem aos navegadores",
-      curiosity: "Inaugurada em 2000",
-      image_url: "/images/sculptures-2.jpeg",
-    },
-  ])
+  const [sculptures, setSculptures] = useState<any[]>([])
 
   const sculptureVisits = [
     { name: "Coluna de Cristal", visits: 3456, color: "#06B6D4" },
@@ -771,21 +755,17 @@ export default function AdminDashboard() {
   }
 
   const loadSculptures = async () => {
-    const supabase = getSupabase()
-    const { data, error } = await supabase.from("sculptures").select("*").order("code", { ascending: true })
+    try {
+      const response = await fetch("/api/sculptures/list")
+      const result = await response.json()
 
-    if (data && !error) {
-      setSculptures(
-        data.map((s) => ({
-          id: s.id,
-          code: s.code,
-          name: s.name,
-          description: s.description,
-          curiosity: s.curiosity,
-          image_url: s.image_url || `/placeholder.svg?height=80&width=80&query=${encodeURIComponent(s.name)}`,
-        })),
-      )
-    } else {
+      if (result.success) {
+        console.log("[v0] Loaded sculptures:", result.data)
+        setSculptures(result.data)
+      } else {
+        console.error("[v0] Error loading sculptures:", result.error)
+      }
+    } catch (error) {
       console.error("[v0] Error loading sculptures:", error)
     }
   }
@@ -1019,8 +999,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadEmployees()
+    loadPartners()
     loadFeedbacks()
-    loadPartners() // Load partners when the component mounts
+    loadSculptures() // Added call to load sculptures
   }, [])
 
   return (
@@ -1873,16 +1854,103 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="sculptures" className="space-y-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold">Esculturas Cadastradas</h2>
-              <Button
-                onClick={() => setShowCreateSculpture(true)}
-                className="bg-gradient-to-r from-[#F59E0B] to-[#1ed5bb] hover:from-[#F59E0B]/90 hover:to-[#1ed5bb]/90 text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Escultura
-              </Button>
-            </div>
+            <Card className="modern-card">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-6 h-6 text-[#F59E0B]" />
+                    <div>
+                      <CardTitle className="text-2xl font-bold">Esculturas Cadastradas</CardTitle>
+                      <CardDescription>
+                        Gerencie as esculturas do parque • Total: {sculptures.length} esculturas
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => setShowCreateSculpture(true)}
+                    className="bg-gradient-to-r from-[#F59E0B] to-[#1ed5bb] hover:from-[#F59E0B]/90 hover:to-[#1ed5bb]/90 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nova Escultura
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {sculptures.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                    <p>Nenhuma escultura cadastrada ainda.</p>
+                    <p className="text-sm">Clique em "Nova Escultura" para começar.</p>
+                  </div>
+                ) : (
+                  sculptures.map((sculpture) => (
+                    <div
+                      key={sculpture.id}
+                      className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 to-orange-100 border-2 border-amber-200">
+                          {sculpture.image_url ? (
+                            <img
+                              src={sculpture.image_url || "/placeholder.svg"}
+                              alt={sculpture.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.log("[v0] Image failed to load:", sculpture.image_url)
+                                e.currentTarget.src = `/placeholder.svg?height=80&width=80&query=${encodeURIComponent(sculpture.name)}`
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-10 h-10 text-amber-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-lg">{sculpture.name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Código: ESC{String(sculpture.code).padStart(3, "0")}
+                          </p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">{sculpture.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingSculpture(sculpture)
+                            setImageFile(null)
+                          }}
+                          className="bg-transparent hover:bg-blue-50"
+                        >
+                          <Pencil className="w-4 h-4 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteSculpture(sculpture.id)}
+                          className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Excluir
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePrintQRCode(sculpture)}
+                          className="bg-transparent hover:bg-amber-50 text-amber-600 hover:text-amber-700"
+                        >
+                          <QrCode className="w-4 h-4 mr-1" />
+                          QR Code
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
 
             {showCreateSculpture && (
               <Card className="modern-card">
@@ -1954,57 +2022,6 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
             )}
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {sculptures.map((sculpture) => (
-                <Card key={sculpture.id} className="modern-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-muted border border-gray-200">
-                        <img
-                          src={
-                            sculpture.image_url ||
-                            `/placeholder.svg?height=80&width=80&query=${encodeURIComponent(sculpture.name) || "/placeholder.svg"}`
-                          }
-                          alt={sculpture.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = `/placeholder.svg?height=80&width=80&query=${encodeURIComponent(sculpture.name)}`
-                          }}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-lg mb-1">{sculpture.name}</h3>
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Código: ESC{String(sculpture.code).padStart(3, "0")}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingSculpture(sculpture)
-                              setImageFile(null)
-                            }}
-                          >
-                            <Pencil className="w-3 h-3 mr-1" />
-                            Editar
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleDeleteSculpture(sculpture.id)}>
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Excluir
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => handlePrintQRCode(sculpture)}>
-                            <QrCode className="w-3 h-3 mr-1" />
-                            QR Code
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
           </TabsContent>
 
           <TabsContent value="data" className="space-y-6">
