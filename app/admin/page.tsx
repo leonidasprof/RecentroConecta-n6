@@ -52,6 +52,8 @@ import {
   Edit2,
   Upload,
   Trash2,
+  Calendar,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -100,6 +102,10 @@ export default function AdminDashboard() {
 
   const [editingSculpture, setEditingSculpture] = useState<any>(null)
 
+  const [bookings, setBookings] = useState<any[]>([])
+  const [selectedBooking, setSelectedBooking] = useState<any>(null)
+  const [editingBooking, setEditingBooking] = useState<any>(null)
+
   useEffect(() => {
     const loadParkStatus = async () => {
       const supabase = getSupabase()
@@ -117,6 +123,23 @@ export default function AdminDashboard() {
     }
 
     loadParkStatus()
+  }, [])
+
+  useEffect(() => {
+    const loadBookings = async () => {
+      const supabase = getSupabase()
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(5)
+
+      if (data && !error) {
+        setBookings(data)
+      }
+    }
+
+    loadBookings()
   }, [])
 
   const handleSaveParkStatus = async () => {
@@ -1806,6 +1829,45 @@ export default function AdminDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            <Card className="modern-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-6 h-6 text-[#F97316]" />
+                  <span className="text-2xl font-bold">Últimos Agendamentos</span>
+                </CardTitle>
+                <CardDescription>Lista dos 5 agendamentos mais recentes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {bookings.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">Nenhum agendamento registrado ainda</p>
+                  ) : (
+                    bookings.map((booking) => (
+                      <div
+                        key={booking.id}
+                        className="p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200 cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => setSelectedBooking(booking)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-lg">{booking.organization || "Sem organização"}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Data: {new Date(booking.visit_date).toLocaleDateString("pt-BR")} • Horário:{" "}
+                              {booking.visit_time} • Pessoas: {booking.number_of_people}
+                            </p>
+                            <p className="text-sm text-muted-foreground">Responsável: {booking.responsible_name}</p>
+                          </div>
+                          <Button variant="outline" size="sm" className="bg-transparent hover:bg-orange-50">
+                            Ver Detalhes
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
@@ -1883,6 +1945,227 @@ export default function AdminDashboard() {
                 >
                   Cancelar
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {selectedBooking && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Detalhes do Agendamento</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedBooking(null)
+                    setEditingBooking(null)
+                  }}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-slate-50 p-4 rounded-lg space-y-2">
+                <p>
+                  <strong>Organização:</strong> {selectedBooking.organization || "Não informado"}
+                </p>
+                <p>
+                  <strong>Responsável:</strong> {selectedBooking.responsible_name}
+                </p>
+                <p>
+                  <strong>E-mail:</strong> {selectedBooking.responsible_email}
+                </p>
+                <p>
+                  <strong>Telefone:</strong> {selectedBooking.responsible_phone}
+                </p>
+                <p>
+                  <strong>Data:</strong> {new Date(selectedBooking.visit_date).toLocaleDateString("pt-BR")}
+                </p>
+                <p>
+                  <strong>Horário:</strong> {selectedBooking.visit_time}
+                </p>
+                <p>
+                  <strong>Total de Pessoas:</strong> {selectedBooking.number_of_people}
+                </p>
+                <p>
+                  <strong>ID:</strong> {selectedBooking.booking_number}
+                </p>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-semibold text-lg">Lista de Visitantes</h4>
+                  {!editingBooking && (
+                    <Button
+                      onClick={() => setEditingBooking({ ...selectedBooking })}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Edit2 className="w-4 h-4 mr-2" />
+                      Editar
+                    </Button>
+                  )}
+                </div>
+
+                {editingBooking ? (
+                  <div className="space-y-4">
+                    {editingBooking.visitors?.map((visitor: any, index: number) => (
+                      <div key={index} className="border-2 border-slate-200 rounded-lg p-4 bg-slate-50">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="font-semibold text-slate-700">Visitante {index + 1}</span>
+                          {editingBooking.visitors.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const newVisitors = editingBooking.visitors.filter((_: any, i: number) => i !== index)
+                                setEditingBooking({
+                                  ...editingBooking,
+                                  visitors: newVisitors,
+                                  number_of_people: newVisitors.length,
+                                })
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-sm font-medium text-slate-600">Nome</Label>
+                            <Input
+                              value={visitor.name}
+                              onChange={(e) => {
+                                const newVisitors = [...editingBooking.visitors]
+                                newVisitors[index].name = e.target.value
+                                setEditingBooking({ ...editingBooking, visitors: newVisitors })
+                              }}
+                              className="mt-1 h-10 text-sm"
+                            />
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-600">Idade</Label>
+                            <Input
+                              type="number"
+                              value={visitor.age}
+                              onChange={(e) => {
+                                const newVisitors = [...editingBooking.visitors]
+                                newVisitors[index].age = e.target.value
+                                setEditingBooking({ ...editingBooking, visitors: newVisitors })
+                              }}
+                              className="mt-1 h-10 text-sm"
+                            />
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-600">CPF ou RG</Label>
+                            <Input
+                              value={visitor.cpf_rg}
+                              onChange={(e) => {
+                                const newVisitors = [...editingBooking.visitors]
+                                newVisitors[index].cpf_rg = e.target.value
+                                setEditingBooking({ ...editingBooking, visitors: newVisitors })
+                              }}
+                              className="mt-1 h-10 text-sm"
+                            />
+                          </div>
+
+                          <div>
+                            <Label className="text-sm font-medium text-slate-600">Contato</Label>
+                            <Input
+                              value={visitor.contact}
+                              onChange={(e) => {
+                                const newVisitors = [...editingBooking.visitors]
+                                newVisitors[index].contact = e.target.value
+                                setEditingBooking({ ...editingBooking, visitors: newVisitors })
+                              }}
+                              className="mt-1 h-10 text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <Button
+                      onClick={() => {
+                        const newVisitor = { id: Date.now().toString(), name: "", age: "", cpf_rg: "", contact: "" }
+                        setEditingBooking({
+                          ...editingBooking,
+                          visitors: [...editingBooking.visitors, newVisitor],
+                          number_of_people: editingBooking.visitors.length + 1,
+                        })
+                      }}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Adicionar Visitante
+                    </Button>
+
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={async () => {
+                          const supabase = getSupabase()
+                          const { error } = await supabase
+                            .from("bookings")
+                            .update({
+                              visitors: editingBooking.visitors,
+                              number_of_people: editingBooking.visitors.length,
+                            })
+                            .eq("id", editingBooking.id)
+
+                          if (error) {
+                            console.error("[v0] Error updating booking:", error)
+                            alert("Erro ao atualizar agendamento")
+                            return
+                          }
+
+                          alert("Agendamento atualizado com sucesso!")
+                          setSelectedBooking(editingBooking)
+                          setEditingBooking(null)
+
+                          // Reload bookings
+                          const { data } = await supabase
+                            .from("bookings")
+                            .select("*")
+                            .order("created_at", { ascending: false })
+                            .limit(5)
+
+                          if (data) {
+                            setBookings(data)
+                          }
+                        }}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        Salvar Alterações
+                      </Button>
+                      <Button onClick={() => setEditingBooking(null)} variant="outline">
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedBooking.visitors?.map((visitor: any, index: number) => (
+                      <div key={index} className="p-3 bg-slate-50 rounded border border-slate-200">
+                        <p className="font-semibold">
+                          {index + 1}. {visitor.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {visitor.age} anos • {visitor.cpf_rg} • {visitor.contact}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

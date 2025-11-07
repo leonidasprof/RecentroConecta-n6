@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { X, Download, User, Mail, Phone, Calendar, Plus, Trash2, Users } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { X, Download, Mail, Calendar, Plus, Trash2, Users, Building2 } from "lucide-react"
 import Image from "next/image"
 import { QRCodeSVG } from "qrcode.react"
 import jsPDF from "jspdf"
@@ -24,20 +25,64 @@ interface Visitor {
   contact: string
 }
 
+interface Partner {
+  id: number
+  name: string
+  type: string
+  contact: string
+  email: string
+}
+
 export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModalProps) {
   const [step, setStep] = useState(1)
+  const [isPartner, setIsPartner] = useState<boolean | null>(null)
+  const [partners, setPartners] = useState<Partner[]>([])
+  const [selectedPartner, setSelectedPartner] = useState<string>("")
+
+  const [newPartner, setNewPartner] = useState({
+    name: "",
+    type: "",
+    contact: "",
+    email: "",
+    phone: "",
+  })
+
   const [responsibleData, setResponsibleData] = useState({
     name: "",
     email: "",
     phone: "",
     visitDate: "",
+    visitTime: "", // Added visit time field
   })
   const [visitors, setVisitors] = useState<Visitor[]>([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
   const [generatedBookingId, setGeneratedBookingId] = useState<string>("")
 
+  useEffect(() => {
+    const loadPartners = async () => {
+      const supabase = getSupabase()
+      const { data, error } = await supabase.from("partners").select("*")
+
+      if (data && !error) {
+        setPartners(data)
+      }
+    }
+
+    if (isOpen) {
+      loadPartners()
+    }
+  }, [isOpen])
+
   if (!isOpen) return null
 
   const handleClose = () => {
+    // Reset all states
+    setStep(1)
+    setIsPartner(null)
+    setSelectedPartner("")
+    setNewPartner({ name: "", type: "", contact: "", email: "", phone: "" })
+    setResponsibleData({ name: "", email: "", phone: "", visitDate: "", visitTime: "" })
+    setVisitors([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
+    setGeneratedBookingId("")
     onClose()
   }
 
@@ -62,10 +107,61 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
     setVisitors(visitors.map((v) => (v.id === id ? { ...v, [field]: value } : v)))
   }
 
+  const handleRegisterNewPartner = async () => {
+    const supabase = getSupabase()
+
+    const { data, error } = await supabase
+      .from("partners")
+      .insert({
+        name: newPartner.name,
+        type: newPartner.type,
+        contact: newPartner.contact,
+        email: newPartner.email,
+        phone: newPartner.phone,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error("[v0] Error registering partner:", error)
+      alert("Erro ao cadastrar parceiro. Tente novamente.")
+      return false
+    }
+
+    if (data) {
+      setPartners([...partners, data])
+      setSelectedPartner(data.id.toString())
+      alert(`Parceiro cadastrado com sucesso!\nNome: ${data.name}`)
+      return true
+    }
+
+    return false
+  }
+
   const handleSubmitBooking = async () => {
+    if (isPartner === false) {
+      const registered = await handleRegisterNewPartner()
+      if (!registered) return
+    }
+
     const supabase = getSupabase()
     const bookingId = `BKG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     setGeneratedBookingId(bookingId)
+
+    let partnerInfo = null
+    if (isPartner && selectedPartner) {
+      const partner = partners.find((p) => p.id.toString() === selectedPartner)
+      partnerInfo = partner
+        ? {
+            partner_id: partner.id,
+            organization: partner.name,
+          }
+        : null
+    } else if (isPartner === false) {
+      partnerInfo = {
+        organization: newPartner.name,
+      }
+    }
 
     const bookingPayload = {
       booking_number: bookingId,
@@ -73,10 +169,12 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
       responsible_email: responsibleData.email,
       responsible_phone: responsibleData.phone,
       visit_date: responsibleData.visitDate,
+      visit_time: responsibleData.visitTime, // Added visit time
       number_of_people: visitors.length,
       qr_code: bookingId,
       is_validated: false,
       visitors: visitors,
+      ...partnerInfo, // Add partner info if exists
     }
 
     const { error } = await supabase.from("bookings").insert(bookingPayload)
@@ -87,10 +185,8 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
       return
     }
 
-    // TODO: Send email with booking confirmation and QR code
     console.log("[v0] Booking created:", bookingId)
-
-    setStep(2)
+    setStep(3) // Move to confirmation step
   }
 
   const generateBookingPDF = () => {
@@ -125,13 +221,14 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
         doc.text(`E-mail: ${responsibleData.email}`, 20, 145)
         doc.text(`Telefone: ${responsibleData.phone}`, 20, 155)
         doc.text(`Data da Visita: ${new Date(responsibleData.visitDate).toLocaleDateString("pt-BR")}`, 20, 165)
-        doc.text(`Total de Visitantes: ${visitors.length}`, 20, 175)
+        doc.text(`Horário: ${responsibleData.visitTime}`, 20, 175) // Added time
+        doc.text(`Total de Visitantes: ${visitors.length}`, 20, 185)
 
-        doc.text("Lista de Visitantes:", 20, 190)
+        doc.text("Lista de Visitantes:", 20, 200)
         doc.setFont("helvetica", "normal")
         doc.setFontSize(10)
 
-        let yPosition = 200
+        let yPosition = 210
         visitors.forEach((visitor, index) => {
           if (yPosition > 270) {
             doc.addPage()
@@ -152,12 +249,10 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
 
   const handleGenerateAnother = () => {
     setStep(1)
-    setResponsibleData({
-      name: "",
-      email: "",
-      phone: "",
-      visitDate: "",
-    })
+    setIsPartner(null)
+    setSelectedPartner("")
+    setNewPartner({ name: "", type: "", contact: "", email: "", phone: "" })
+    setResponsibleData({ name: "", email: "", phone: "", visitDate: "", visitTime: "" })
     setVisitors([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
     setGeneratedBookingId("")
   }
@@ -168,10 +263,10 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
       onClick={handleClose}
     >
       <Card
-        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in rounded-2xl p-0"
+        className="w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl animate-fade-in rounded-2xl p-0 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-40 sm:h-44 m-0">
+        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-32 m-0 flex-shrink-0">
           <div className="absolute inset-0">
             <Image src="/images/marco-zero.jpeg" alt="Marco Zero" fill className="object-cover opacity-70" />
             <div className="absolute inset-0 bg-gradient-to-b from-emerald-900/90 via-teal-800/80 to-cyan-700/90" />
@@ -186,30 +281,185 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
             <X className="w-6 h-6" />
           </Button>
 
-          <div className="relative z-10 flex flex-col items-center justify-center h-full text-white gap-1 md:gap-2 px-4 py-4">
+          <div className="relative z-10 flex flex-col items-center justify-center h-full text-white gap-1 px-4">
             <div className="flex items-center gap-2">
-              <Calendar className="w-7 h-7 md:w-9 md:h-9 opacity-50" />
-              <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold drop-shadow-lg">Agendar Visita</h2>
+              <Calendar className="w-6 h-6 md:w-7 md:h-7 opacity-50" />
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold drop-shadow-lg">Agendar Visita</h2>
             </div>
-            <p className="text-white/95 text-sm sm:text-base md:text-lg text-center max-w-lg leading-snug font-medium px-2">
+            <p className="text-white/95 text-xs sm:text-sm md:text-base text-center max-w-lg leading-snug font-medium">
               Organize sua visita em grupo ao Parque de Esculturas
             </p>
           </div>
         </CardHeader>
 
-        <CardContent className="p-6">
-          {step === 1 && (
+        <CardContent className="p-6 overflow-y-auto flex-1">
+          {step === 1 && isPartner === null && (
             <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <Building2 className="w-16 h-16 mx-auto text-emerald-600" />
+                <h3 className="text-2xl font-bold text-slate-800">Você é um parceiro cadastrado?</h3>
+                <p className="text-slate-600">
+                  Parceiros cadastrados incluem escolas, hotéis, agências de turismo e outras instituições
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button
+                  onClick={() => setIsPartner(true)}
+                  className="h-24 text-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold"
+                >
+                  <Building2 className="w-6 h-6 mr-2" />
+                  Sim, sou parceiro
+                </Button>
+                <Button
+                  onClick={() => setIsPartner(false)}
+                  variant="outline"
+                  className="h-24 text-lg border-2 border-emerald-500 text-emerald-600 hover:bg-emerald-50 font-semibold bg-transparent"
+                >
+                  <Plus className="w-6 h-6 mr-2" />
+                  Não, quero me cadastrar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 1 && isPartner === true && (
+            <div className="space-y-6">
+              <Button onClick={() => setIsPartner(null)} variant="ghost" className="mb-4">
+                ← Voltar
+              </Button>
+
               <div className="space-y-4">
                 <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <User className="w-5 h-5" />
+                  <Building2 className="w-5 h-5" />
+                  Selecione sua Organização/Instituição
+                </h3>
+
+                <Select value={selectedPartner} onValueChange={setSelectedPartner}>
+                  <SelectTrigger className="h-14 text-base border-2 focus:border-emerald-500">
+                    <SelectValue placeholder="Escolha a organização" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {partners.map((partner) => (
+                      <SelectItem key={partner.id} value={partner.id.toString()}>
+                        {partner.name} - {partner.type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  onClick={() => setStep(2)}
+                  disabled={!selectedPartner}
+                  className="w-full h-14 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-lg font-semibold disabled:opacity-50"
+                >
+                  Continuar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 1 && isPartner === false && (
+            <div className="space-y-6">
+              <Button onClick={() => setIsPartner(null)} variant="ghost" className="mb-4">
+                ← Voltar
+              </Button>
+
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <Plus className="w-5 h-5" />
+                  Cadastrar Nova Organização/Instituição
+                </h3>
+
+                <div>
+                  <Label htmlFor="partner-name">Nome da Organização</Label>
+                  <Input
+                    id="partner-name"
+                    value={newPartner.name}
+                    onChange={(e) => setNewPartner({ ...newPartner, name: e.target.value })}
+                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                    placeholder="Ex: Colégio Santa Maria"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="partner-type">Tipo</Label>
+                  <Select
+                    value={newPartner.type}
+                    onValueChange={(value) => setNewPartner({ ...newPartner, type: value })}
+                  >
+                    <SelectTrigger className="mt-2 h-12 text-base border-2 focus:border-emerald-500">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Escola">Escola</SelectItem>
+                      <SelectItem value="Hotel">Hotel</SelectItem>
+                      <SelectItem value="Agência">Agência de Turismo</SelectItem>
+                      <SelectItem value="Empresa">Empresa</SelectItem>
+                      <SelectItem value="ONG">ONG</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="partner-contact">Nome do Contato</Label>
+                  <Input
+                    id="partner-contact"
+                    value={newPartner.contact}
+                    onChange={(e) => setNewPartner({ ...newPartner, contact: e.target.value })}
+                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                    placeholder="Nome do responsável"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="partner-email">E-mail</Label>
+                  <Input
+                    id="partner-email"
+                    type="email"
+                    value={newPartner.email}
+                    onChange={(e) => setNewPartner({ ...newPartner, email: e.target.value })}
+                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                    placeholder="contato@organizacao.com"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="partner-phone">Telefone</Label>
+                  <Input
+                    id="partner-phone"
+                    value={newPartner.phone}
+                    onChange={(e) => setNewPartner({ ...newPartner, phone: e.target.value })}
+                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                    placeholder="(81) 99999-9999"
+                  />
+                </div>
+
+                <Button
+                  onClick={() => setStep(2)}
+                  disabled={!newPartner.name || !newPartner.type || !newPartner.contact || !newPartner.email}
+                  className="w-full h-14 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-lg font-semibold disabled:opacity-50"
+                >
+                  Continuar com Cadastro
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-6">
+              <Button onClick={() => setStep(1)} variant="ghost" className="mb-4">
+                ← Voltar
+              </Button>
+
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <Mail className="w-5 h-5" />
                   Dados do Responsável
                 </h3>
 
                 <div>
-                  <Label htmlFor="resp-name" className="text-base font-semibold text-slate-700">
-                    Nome Completo
-                  </Label>
+                  <Label htmlFor="resp-name">Nome Completo</Label>
                   <Input
                     id="resp-name"
                     value={responsibleData.name}
@@ -220,13 +470,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                 </div>
 
                 <div>
-                  <Label
-                    htmlFor="resp-email"
-                    className="text-base font-semibold text-slate-700 flex items-center gap-2"
-                  >
-                    <Mail className="w-4 h-4" />
-                    E-mail
-                  </Label>
+                  <Label htmlFor="resp-email">E-mail</Label>
                   <Input
                     id="resp-email"
                     type="email"
@@ -238,13 +482,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                 </div>
 
                 <div>
-                  <Label
-                    htmlFor="resp-phone"
-                    className="text-base font-semibold text-slate-700 flex items-center gap-2"
-                  >
-                    <Phone className="w-4 h-4" />
-                    Telefone
-                  </Label>
+                  <Label htmlFor="resp-phone">Telefone</Label>
                   <Input
                     id="resp-phone"
                     value={responsibleData.phone}
@@ -254,17 +492,28 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="visit-date" className="text-base font-semibold text-slate-700">
-                    Data da Visita
-                  </Label>
-                  <Input
-                    id="visit-date"
-                    type="date"
-                    value={responsibleData.visitDate}
-                    onChange={(e) => setResponsibleData({ ...responsibleData, visitDate: e.target.value })}
-                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="visit-date">Data da Visita</Label>
+                    <Input
+                      id="visit-date"
+                      type="date"
+                      value={responsibleData.visitDate}
+                      onChange={(e) => setResponsibleData({ ...responsibleData, visitDate: e.target.value })}
+                      className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="visit-time">Horário da Visita</Label>
+                    <Input
+                      id="visit-time"
+                      type="time"
+                      value={responsibleData.visitTime}
+                      onChange={(e) => setResponsibleData({ ...responsibleData, visitTime: e.target.value })}
+                      className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -348,7 +597,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
               <div className="bg-blue-50 p-4 rounded-lg">
                 <p className="text-sm text-blue-800">
                   <strong>Importante:</strong> Após o agendamento, você receberá um e-mail com o QR code que liberará a
-                  entrada de todos os visitantes cadastrados na data selecionada.
+                  entrada de todos os visitantes cadastrados na data e horário selecionados.
                 </p>
               </div>
 
@@ -359,6 +608,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                   !responsibleData.email ||
                   !responsibleData.phone ||
                   !responsibleData.visitDate ||
+                  !responsibleData.visitTime ||
                   visitors.some((v) => !v.name || !v.age || !v.cpf_rg)
                 }
                 className="w-full h-14 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-lg font-semibold disabled:opacity-50"
@@ -368,7 +618,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="space-y-6">
               <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 animate-fade-in">
                 <div className="text-center space-y-4">
@@ -410,6 +660,9 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                       <strong>Data da Visita:</strong> {new Date(responsibleData.visitDate).toLocaleDateString("pt-BR")}
                     </p>
                     <p className="text-base">
+                      <strong>Horário:</strong> {responsibleData.visitTime}
+                    </p>
+                    <p className="text-base">
                       <strong>Total de Visitantes:</strong> {visitors.length}
                     </p>
                     <p className="text-xs text-slate-500 mt-3">
@@ -424,7 +677,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                         <p className="text-base font-bold text-slate-800 mb-2">E-mail Enviado!</p>
                         <p className="text-base text-slate-700 leading-relaxed">
                           Um e-mail de confirmação com o QR code foi enviado para {responsibleData.email}. Apresente o
-                          QR code na entrada do parque na data agendada.
+                          QR code na entrada do parque na data e horário agendados.
                         </p>
                       </div>
                     </div>
@@ -450,7 +703,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                 </Button>
 
                 <Button
-                  onClick={onClose}
+                  onClick={handleClose}
                   variant="ghost"
                   className="w-full h-12 text-slate-500 hover:text-slate-700 text-base"
                 >
