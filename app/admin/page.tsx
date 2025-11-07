@@ -50,30 +50,120 @@ import {
   AlertCircle,
   Plus,
   Edit2,
-  Upload,
   Trash2,
   Calendar,
   X,
+  Pencil,
+  Package,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { getSupabase } from "@/lib/supabase"
 import QrScanner from "@/components/qr-scanner" // Imported QrScanner
 
+// Added helper function for partner icons
+const getPartnerIcon = (organization: string) => {
+  const org = organization?.toLowerCase() || ""
+  if (org.includes("escola") || org.includes("school")) return <School className="w-6 h-6" />
+  if (org.includes("hotel")) return <Hotel className="w-6 h-6" />
+  if (org.includes("agência") || org.includes("agency")) return <Plane className="w-6 h-6" />
+  if (org.includes("empresa") || org.includes("company")) return <Briefcase className="w-6 h-6" />
+  if (org.includes("ong")) return <Users className="w-6 h-6" />
+  // Default icon for other types
+  return <Building2 className="w-6 h-6" />
+}
+
+const generateQRCodeUrl = (sculptureId: string) => {
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
+  const sculptureUrl = `${baseUrl}/escultura/${sculptureId}`
+  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(sculptureUrl)}`
+}
+
+const handlePrintQRCode = (sculpture: any) => {
+  const qrCodeUrl = generateQRCodeUrl(sculpture.id)
+  const printWindow = window.open("", "_blank")
+  if (printWindow) {
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>QR Code - ${sculpture.name}</title>
+          <style>
+            body {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              margin: 0;
+              font-family: Arial, sans-serif;
+              padding: 20px;
+            }
+            .qr-container {
+              text-align: center;
+              border: 2px solid #A855F7;
+              padding: 30px;
+              border-radius: 10px;
+              background: white;
+            }
+            h1 {
+              color: #A855F7;
+              margin-bottom: 10px;
+              font-size: 24px;
+            }
+            .code {
+              color: #666;
+              font-family: monospace;
+              font-size: 18px;
+              margin-bottom: 20px;
+            }
+            img {
+              display: block;
+              margin: 0 auto;
+            }
+            p {
+              margin-top: 20px;
+              color: #666;
+              font-size: 14px;
+            }
+            @media print {
+              body {
+                background: white;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="qr-container">
+            <h1>${sculpture.name}</h1>
+            <p class="code">Código: ESC${String(sculpture.code).padStart(3, "0")}</p>
+            <img src="${qrCodeUrl}" alt="QR Code" />
+            <p>Escaneie para ver detalhes da escultura</p>
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+}
+
 export default function AdminDashboard() {
   const [newEmployee, setNewEmployee] = useState({ name: "", email: "", role: "" })
-  const [employees, setEmployees] = useState([
-    { id: 1, name: "Carlos Silva", email: "carlos@parque.com", role: "admin" },
-    { id: 2, name: "Ana Santos", email: "ana@parque.com", role: "guide" },
-    { id: 3, name: "Pedro Costa", email: "pedro@parque.com", role: "manager" },
-  ])
+  const [employees, setEmployees] = useState<any[]>([])
   const [editingEmployee, setEditingEmployee] = useState<any>(null)
   const [editingEmployeePassword, setEditingEmployeePassword] = useState<any>(null)
   const [newPassword, setNewPassword] = useState("")
 
   const [newPartner, setNewPartner] = useState({
     name: "",
-    type: "",
+    type: "", // This will map to 'organization' in the backend
     contact: "",
     email: "",
     phone: "",
@@ -81,11 +171,7 @@ export default function AdminDashboard() {
   })
   const [editingPartner, setEditingPartner] = useState<any>(null)
 
-  const [partners, setPartners] = useState([
-    { id: 1, name: "Colégio Santa Maria", type: "Escola", contact: "Maria Santos", email: "contato@santamaria.edu.br" },
-    { id: 2, name: "Hotel Atlante Plaza", type: "Hotel", contact: "João Silva", email: "eventos@atlanteplaza.com.br" },
-    { id: 3, name: "Recife Turismo", type: "Agência", contact: "Ana Costa", email: "ana@recifeturismo.com.br" },
-  ])
+  const [partners, setPartners] = useState<any[]>([])
 
   const [exportPeriod, setExportPeriod] = useState("day")
   const [exportFormat, setExportFormat] = useState("csv")
@@ -100,11 +186,65 @@ export default function AdminDashboard() {
   const [showQrScanner, setShowQrScanner] = useState(false)
   const [scanResult, setScanResult] = useState<any>(null)
 
+  const [newSculpture, setNewSculpture] = useState({
+    name: "",
+    description: "",
+    curiosity: "",
+    imageUrl: "",
+  })
   const [editingSculpture, setEditingSculpture] = useState<any>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [imageFile, setImageFile] = useState<File | null>(null)
 
   const [bookings, setBookings] = useState<any[]>([])
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
   const [editingBooking, setEditingBooking] = useState<any>(null)
+
+  const [loggedEmployee, setLoggedEmployee] = useState<any>(null)
+  const [greeting, setGreeting] = useState("")
+
+  const [feedbacks, setFeedbacks] = useState<any[]>([])
+
+  const [showCreateSculpture, setShowCreateSculpture] = useState(false)
+
+  useEffect(() => {
+    const employeeData = localStorage.getItem("employee")
+    if (employeeData) {
+      const employee = JSON.parse(employeeData)
+      setLoggedEmployee(employee)
+
+      // Determine greeting based on time
+      const hour = new Date().getHours()
+      if (hour >= 5 && hour < 12) {
+        setGreeting(`Bom dia, ${employee.name}!`)
+      } else if (hour >= 12 && hour < 18) {
+        setGreeting(`Boa tarde, ${employee.name}!`)
+      } else {
+        setGreeting(`Boa noite, ${employee.name}!`)
+      }
+    }
+
+    loadFeedbacks()
+  }, [])
+
+  // Define loadEmployees here to fix undeclared variable error
+  const loadEmployees = async () => {
+    try {
+      const response = await fetch("/api/employees/list")
+      const result = await response.json()
+
+      if (result.success) {
+        console.log("[v0] Loaded employees:", result.data)
+        setEmployees(result.data)
+      }
+    } catch (error) {
+      console.error("[v0] Error loading employees:", error)
+    }
+  }
+
+  useEffect(() => {
+    loadEmployees()
+  }, [])
 
   useEffect(() => {
     const loadParkStatus = async () => {
@@ -142,6 +282,31 @@ export default function AdminDashboard() {
     loadBookings()
   }, [])
 
+  const loadFeedbacks = async () => {
+    try {
+      const response = await fetch("/api/feedbacks/list")
+      const result = await response.json()
+
+      if (result.success) {
+        console.log("[v0] Loaded feedbacks:", result.data)
+        // Map database fields to component format
+        // Note: satisfaction_ratings table doesn't have visitor_name column
+        const formattedFeedbacks = result.data.map((feedback: any) => ({
+          id: feedback.id,
+          name: "Visitante", // Default name since we don't have visitor_name in the table
+          rating: feedback.rating,
+          comment: feedback.comment || "Sem comentário",
+          date: new Date(feedback.created_at).toLocaleDateString("pt-BR"),
+        }))
+        setFeedbacks(formattedFeedbacks)
+      } else {
+        console.error("[v0] Error loading feedbacks:", result.error)
+      }
+    } catch (error) {
+      console.error("[v0] Error loading feedbacks:", error)
+    }
+  }
+
   const handleSaveParkStatus = async () => {
     console.log("[v0] Saving park status:", parkOpen)
 
@@ -162,11 +327,6 @@ export default function AdminDashboard() {
     alert(`Status do parque salvo com sucesso!\n\nO parque está agora: ${parkOpen ? "ABERTO" : "FECHADO"}`)
   }
 
-  const [newSculpture, setNewSculpture] = useState({
-    name: "",
-    description: "",
-    curiosity: "",
-  })
   const [sculptureImage, setSculptureImage] = useState<File | null>(null) // Added for image upload
 
   const [sculptures, setSculptures] = useState([
@@ -261,44 +421,6 @@ export default function AdminDashboard() {
     { name: "Insatisfeito", value: 5, color: "#EC4899" },
   ]
 
-  const feedbacks = [
-    {
-      id: 1,
-      name: "Maria Silva",
-      rating: 5,
-      comment: "Experiência incrível! As esculturas são magníficas e o parque é muito bem cuidado.",
-      date: "2025-01-15",
-    },
-    {
-      id: 2,
-      name: "João Santos",
-      rating: 4,
-      comment: "Lugar maravilhoso para visitar com a família. Recomendo!",
-      date: "2025-01-14",
-    },
-    {
-      id: 3,
-      name: "Ana Costa",
-      rating: 5,
-      comment: "Arte a céu aberto no coração do Recife. Simplesmente perfeito!",
-      date: "2025-01-13",
-    },
-    {
-      id: 4,
-      name: "Pedro Oliveira",
-      rating: 4,
-      comment: "Muito bonito, mas poderia ter mais informações sobre as obras.",
-      date: "2025-01-12",
-    },
-    {
-      id: 5,
-      name: "Carla Mendes",
-      rating: 5,
-      comment: "Visitei com minha escola e foi uma experiência educativa maravilhosa!",
-      date: "2025-01-11",
-    },
-  ]
-
   const handleEditEmployee = (employee: any) => {
     setEditingEmployee(employee)
     setNewEmployee({
@@ -327,26 +449,34 @@ export default function AdminDashboard() {
     setEditingEmployee(null)
   }
 
-  const handleDeleteEmployee = (employeeId: number) => {
+  const handleDeleteEmployee = async (employeeId: string) => {
     if (!confirm("Tem certeza que deseja excluir este funcionário?")) {
       return
     }
-    setEmployees(employees.filter((emp) => emp.id !== employeeId))
-    alert("Funcionário excluído com sucesso!")
-  }
 
-  const handleEditPassword = (employee: any) => {
-    setEditingEmployeePassword(employee)
-    setNewPassword("")
-  }
+    try {
+      const response = await fetch("/api/employees/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId }),
+      })
 
-  const handleSavePassword = () => {
-    if (!newPassword || newPassword.length < 6) {
-      alert("A senha deve ter no mínimo 6 caracteres!")
-      return
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to delete employee")
+      }
+
+      // Remove from local state
+      setEmployees(employees.filter((emp) => emp.id !== employeeId))
+      alert("Funcionário excluído com sucesso!")
+    } catch (error: any) {
+      console.error("[v0] Error deleting employee:", error)
+      alert(`Erro ao excluir funcionário: ${error.message}`)
     }
-    alert(`Senha atualizada com sucesso para ${editingEmployeePassword.name}!\nNova senha: ${newPassword}`)
-    setEditingEmployeePassword(null)
+  }
+
+  const handleEditPassword = async (employee: any) => {
+    setEditingEmployeePassword(employee)
     setNewPassword("")
   }
 
@@ -365,55 +495,40 @@ export default function AdminDashboard() {
       return
     }
 
-    const supabase = getSupabase()
-
-    const { data: existingEmployee } = await supabase
-      .from("employees")
-      .select("email")
-      .eq("email", newEmployee.email)
-      .single()
-
-    if (existingEmployee) {
-      console.log("[v0] Email already exists:", newEmployee.email)
-      alert("Este email já está cadastrado no sistema. Use outro email.")
-      return
-    }
-
-    const tempPassword = `temp${Math.random().toString(36).slice(-6)}`
-    console.log("[v0] Creating employee with temp password:", tempPassword)
-
-    const { data, error } = await supabase
-      .from("employees")
-      .insert({
-        name: newEmployee.name,
-        email: newEmployee.email,
-        role: newEmployee.role,
-        password_hash: tempPassword,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error("[v0] Error creating employee:", error)
-      alert("Erro ao criar funcionário. Verifique os dados e tente novamente.")
-      return
-    }
-
-    if (data) {
-      console.log("[v0] Employee created successfully:", data)
-      setEmployees([
-        ...employees,
-        {
-          id: data.id,
-          name: data.name,
-          email: data.email,
-          role: data.role,
+    try {
+      const response = await fetch("/api/employees/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      ])
+        body: JSON.stringify(newEmployee),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error("[v0] Error creating employee:", result.error)
+        alert(result.error || "Erro ao criar funcionário")
+        return
+      }
+
+      console.log("[v0] Employee created successfully:", result)
+
+      const employeesResponse = await fetch("/api/employees/list")
+      const employeesResult = await employeesResponse.json()
+
+      if (employeesResult.success) {
+        setEmployees(employeesResult.data)
+      }
+
       alert(
-        `Funcionário criado com sucesso!\n\nNome: ${data.name}\nEmail: ${data.email}\nSenha temporária: ${tempPassword}\n\nO funcionário pode usar esta senha para fazer login.`,
+        `Funcionário criado com sucesso!\n\nNome: ${result.employee.name}\nEmail: ${result.employee.email}\nSenha temporária: ${result.tempPassword}\n\nO funcionário pode usar esta senha para fazer login.`,
       )
+
       setNewEmployee({ name: "", email: "", role: "" })
+    } catch (error) {
+      console.error("[v0] Error creating employee:", error)
+      alert("Erro ao criar funcionário. Tente novamente.")
     }
   }
 
@@ -421,43 +536,83 @@ export default function AdminDashboard() {
     setEditingPartner(partner)
     setNewPartner({
       name: partner.name,
-      type: partner.type,
-      contact: partner.contact,
-      email: partner.email,
+      type: partner.organization || "", // Use organization directly
+      contact: partner.contact || "",
+      email: partner.email || "",
       phone: partner.phone || "",
       address: partner.address || "",
     })
   }
 
-  const handleUpdatePartner = (e: React.FormEvent) => {
+  const handleUpdatePartner = async (e: React.FormEvent) => {
     e.preventDefault()
 
     console.log("[v0] Updating partner:", editingPartner, "with data:", newPartner)
 
-    setPartners(
-      partners.map((p) =>
-        p.id === editingPartner.id
-          ? {
-              ...p,
-              name: newPartner.name,
-              type: newPartner.type,
-              contact: newPartner.contact,
-              email: newPartner.email,
-            }
-          : p,
-      ),
-    )
-    alert(`Parceiro atualizado!\nNome: ${newPartner.name}\nTipo: ${newPartner.type}`)
-    setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
-    setEditingPartner(null)
+    try {
+      const organizationValue = newPartner.type || editingPartner.organization
+
+      if (!organizationValue) {
+        alert("Por favor, preencha o tipo/organização do parceiro")
+        return
+      }
+
+      const response = await fetch("/api/partners/update", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingPartner.id,
+          name: newPartner.name,
+          organization: organizationValue,
+          phone: newPartner.phone,
+          email: newPartner.email,
+          // Address is not currently being updated in the backend, but can be added if needed
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Erro ao atualizar parceiro")
+      }
+
+      const data = await response.json()
+      console.log("[v0] Partner updated:", data)
+
+      // Reload partners list
+      await loadPartners()
+
+      alert(`Parceiro atualizado!\nNome: ${newPartner.name}\nOrganização: ${organizationValue}`)
+      setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
+      setEditingPartner(null)
+    } catch (error: any) {
+      console.error("[v0] Error updating partner:", error)
+      alert("Erro ao atualizar parceiro: " + error.message)
+    }
   }
 
-  const handleDeletePartner = (partnerId: number) => {
+  const handleDeletePartner = async (partnerId: string) => {
     if (!confirm("Tem certeza que deseja excluir este parceiro?")) {
       return
     }
-    setPartners(partners.filter((p) => p.id !== partnerId))
-    alert("Parceiro excluído com sucesso!")
+
+    try {
+      const response = await fetch(`/api/partners/delete?id=${partnerId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Erro ao excluir parceiro")
+      }
+
+      // Reload partners list
+      await loadPartners()
+
+      alert("Parceiro excluído com sucesso!")
+    } catch (error: any) {
+      console.error("[v0] Error deleting partner:", error)
+      alert("Erro ao excluir parceiro: " + error.message)
+    }
   }
 
   const handleCancelPartnerEdit = () => {
@@ -465,18 +620,39 @@ export default function AdminDashboard() {
     setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
   }
 
-  const handleCreatePartner = (e: React.FormEvent) => {
+  const handleCreatePartner = async (e: React.FormEvent) => {
     e.preventDefault()
-    const newPartnerData = {
-      id: partners.length + 1,
-      name: newPartner.name,
-      type: newPartner.type,
-      contact: newPartner.contact,
-      email: newPartner.email,
+
+    try {
+      const response = await fetch("/api/partners/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newPartner.name,
+          organization: newPartner.type, // Use 'organization' field for type
+          phone: newPartner.phone,
+          email: newPartner.email,
+          // Address is not currently being saved in the backend, but can be added if needed
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Erro ao cadastrar parceiro")
+      }
+
+      const data = await response.json()
+      console.log("[v0] Partner created:", data)
+
+      // Reload partners list
+      await loadPartners()
+
+      alert(`Parceiro cadastrado com sucesso!\nNome: ${newPartner.name}\nOrganização: ${newPartner.type}`)
+      setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
+    } catch (error: any) {
+      console.error("[v0] Error creating partner:", error)
+      alert("Erro ao cadastrar parceiro: " + error.message)
     }
-    setPartners([...partners, newPartnerData])
-    alert(`Parceiro cadastrado com sucesso!\nNome: ${newPartner.name}\nTipo: ${newPartner.type}`)
-    setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
   }
 
   const handleExportData = () => {
@@ -594,161 +770,165 @@ export default function AdminDashboard() {
     }
   }
 
-  useEffect(() => {
-    const loadSculptures = async () => {
-      const supabase = getSupabase()
-      const { data, error } = await supabase.from("sculptures").select("*").order("code", { ascending: true })
+  const loadSculptures = async () => {
+    const supabase = getSupabase()
+    const { data, error } = await supabase.from("sculptures").select("*").order("code", { ascending: true })
 
-      if (data && !error) {
-        setSculptures(
-          data.map((s) => ({
-            id: s.id,
-            code: s.code,
-            name: s.name,
-            description: s.description,
-            curiosity: s.curiosity,
-            image_url: s.image_url || "/images/placeholder.png", // Use placeholder if null
-          })),
-        )
-      }
+    if (data && !error) {
+      setSculptures(
+        data.map((s) => ({
+          id: s.id,
+          code: s.code,
+          name: s.name,
+          description: s.description,
+          curiosity: s.curiosity,
+          image_url: s.image_url || `/placeholder.svg?height=80&width=80&query=${encodeURIComponent(s.name)}`,
+        })),
+      )
+    } else {
+      console.error("[v0] Error loading sculptures:", error)
     }
+  }
 
+  useEffect(() => {
     loadSculptures()
   }, [])
 
-  const handleCreateSculpture = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleImageUpload = async (file: File): Promise<string> => {
+    const formData = new FormData()
+    formData.append("file", file)
 
-    console.log("[v0] Creating sculpture with data:", newSculpture)
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    })
 
-    const supabase = getSupabase()
+    if (!response.ok) {
+      throw new Error("Failed to upload image")
+    }
 
-    // Get the next code number
-    const { data: existingSculptures } = await supabase
-      .from("sculptures")
-      .select("code")
-      .order("code", { ascending: false })
-      .limit(1)
+    const data = await response.json()
+    return data.url
+  }
 
-    let nextNumber = 1
-    if (existingSculptures && existingSculptures.length > 0) {
-      const lastCode = existingSculptures[0].code
-      const match = lastCode.match(/ESC(\d+)/)
-      if (match) {
-        nextNumber = Number.parseInt(match[1]) + 1
+  const handleCreateSculpture = async () => {
+    try {
+      if (!newSculpture.name.trim()) {
+        alert("Por favor, preencha o nome da escultura")
+        return
       }
-    }
 
-    const newCode = `ESC${String(nextNumber).padStart(3, "0")}`
+      setUploadingImage(true)
+      let imageUrl = newSculpture.imageUrl
 
-    // TODO: Upload image to storage if sculptureImage exists
-    const imageUrl = "/images/sculptures-1.jpeg" // Default placeholder image for now
-    if (sculptureImage) {
-      // In a real implementation, upload to Supabase Storage or Vercel Blob
-      console.log("[v0] Would upload image:", sculptureImage.name)
-    }
+      if (imageFile) {
+        try {
+          imageUrl = await handleImageUpload(imageFile)
+          console.log("[v0] Image uploaded:", imageUrl)
+        } catch (error) {
+          console.error("[v0] Error uploading image:", error)
+          alert("Erro ao fazer upload da imagem. A escultura será criada sem imagem.")
+        }
+      }
 
-    const { data, error } = await supabase
-      .from("sculptures")
-      .insert({
-        code: newCode,
-        name: newSculpture.name,
-        description: newSculpture.description,
-        curiosity: newSculpture.curiosity,
-        image_url: imageUrl,
+      const response = await fetch("/api/sculptures/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newSculpture.name,
+          description: newSculpture.description,
+          curiosity: newSculpture.curiosity,
+          image_url: imageUrl,
+        }),
       })
-      .select()
-      .single()
 
-    if (error) {
-      console.error("[v0] Error creating sculpture:", error)
-      alert("Erro ao cadastrar escultura. Tente novamente.")
-      return
-    }
-
-    if (data) {
-      const updatedSculptures = [
-        ...sculptures,
-        {
-          id: data.id,
-          code: data.code,
-          name: data.name,
-          description: data.description,
-          curiosity: data.curiosity,
-          image_url: data.image_url,
-        },
-      ]
-      setSculptures(updatedSculptures)
-
-      alert(`Escultura cadastrada com sucesso!\nCódigo: ${newCode}\nNome: ${newSculpture.name}`)
-
-      setNewSculpture({ name: "", description: "", curiosity: "" })
-      setSculptureImage(null)
-
-      const fileInput = document.getElementById("sculpture-image") as HTMLInputElement
-      if (fileInput) {
-        fileInput.value = ""
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Erro ao criar escultura")
       }
+
+      const data = await response.json()
+      console.log("[v0] Sculpture created:", data)
+
+      // Reload sculptures from database
+      await loadSculptures()
+
+      // Reset form
+      setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
+      setImageFile(null)
+      setShowCreateSculpture(false)
+    } catch (error: any) {
+      console.error("[v0] Error creating sculpture:", error.message)
+      alert(`Erro ao criar escultura: ${error.message}`)
+    } finally {
+      setUploadingImage(false)
     }
   }
 
   const handleEditSculpture = (sculpture: any) => {
     setEditingSculpture(sculpture)
     setNewSculpture({
+      // This should likely be setEditingSculpture, but keeping as is for now
       name: sculpture.name,
       description: sculpture.description,
       curiosity: sculpture.curiosity,
+      imageUrl: sculpture.image_url, // Make sure to also set imageUrl for editing
     })
+    setImageFile(null) // Clear any previously selected file when starting edit
+    // setShowCreateSculpture(false); // Ensure this modal is not showing if we open edit
   }
 
-  const handleUpdateSculpture = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleUpdateSculpture = async () => {
+    try {
+      if (!editingSculpture || !editingSculpture.name.trim()) {
+        alert("Por favor, preencha o nome da escultura")
+        return
+      }
 
-    const supabase = getSupabase()
+      setUploadingImage(true)
+      let imageUrl = editingSculpture.image_url
 
-    // TODO: Upload image to storage if sculptureImage exists
-    const imageUrl = editingSculpture.image_url
-    if (sculptureImage) {
-      console.log("[v0] Would upload image:", sculptureImage.name)
-    }
+      if (imageFile) {
+        try {
+          imageUrl = await handleImageUpload(imageFile)
+          console.log("[v0] Image uploaded:", imageUrl)
+        } catch (error) {
+          console.error("[v0] Error uploading image:", error)
+          alert("Erro ao fazer upload da imagem. A escultura será atualizada sem nova imagem.")
+        }
+      }
 
-    const { data, error } = await supabase
-      .from("sculptures")
-      .update({
-        name: newSculpture.name,
-        description: newSculpture.description,
-        curiosity: newSculpture.curiosity,
-        image_url: imageUrl,
+      const response = await fetch("/api/sculptures/update", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingSculpture.id,
+          name: editingSculpture.name,
+          description: editingSculpture.description,
+          curiosity: editingSculpture.curiosity,
+          image_url: imageUrl,
+        }),
       })
-      .eq("id", editingSculpture.id)
-      .select()
-      .single()
 
-    if (error) {
-      console.error("[v0] Error updating sculpture:", error)
-      alert("Erro ao atualizar escultura. Tente novamente.")
-      return
-    }
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Erro ao atualizar escultura")
+      }
 
-    if (data) {
-      setSculptures(
-        sculptures.map((s) =>
-          s.id === data.id
-            ? {
-                id: data.id,
-                code: data.code,
-                name: data.name,
-                description: data.description,
-                curiosity: data.curiosity,
-                image_url: data.image_url,
-              }
-            : s,
-        ),
-      )
-      alert(`Escultura atualizada!\nCódigo: ${data.code}\nNome: ${data.name}`)
-      setNewSculpture({ name: "", description: "", curiosity: "" })
-      setSculptureImage(null)
+      const data = await response.json()
+      console.log("[v0] Sculpture updated:", data)
+
+      // Reload sculptures from database
+      await loadSculptures()
+
+      // Reset form
       setEditingSculpture(null)
+      setImageFile(null)
+    } catch (error: any) {
+      console.error("[v0] Error updating sculpture:", error.message)
+      alert(`Erro ao atualizar escultura: ${error.message}`)
+    } finally {
+      setUploadingImage(false)
     }
   }
 
@@ -772,14 +952,76 @@ export default function AdminDashboard() {
 
   const handleCancelEdit = () => {
     setEditingSculpture(null)
-    setNewSculpture({ name: "", description: "", curiosity: "" })
-    setSculptureImage(null)
+    setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" }) // Resetting newSculpture as well
+    setImageFile(null) // Clear image file when cancelling edit
   }
 
   const renderPieLabel = (entry: any) => {
     const percent = (entry.percent * 100).toFixed(0)
     return `${entry.name}\n${percent}%`
   }
+
+  // Function to save password - implemented below to fix undeclared variable error
+  const handleSavePassword = async () => {
+    if (!editingEmployeePassword || !newPassword) {
+      alert("Selecione um funcionário e digite uma nova senha.")
+      return
+    }
+
+    if (newPassword.length < 6) {
+      alert("A nova senha deve ter no mínimo 6 caracteres.")
+      return
+    }
+
+    try {
+      const response = await fetch("/api/employees/update-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          employeeId: editingEmployeePassword.id,
+          newPassword: newPassword,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        console.error("[v0] Error updating password:", result.error)
+        alert(result.error || "Erro ao atualizar senha")
+        return
+      }
+
+      console.log("[v0] Password updated successfully:", result)
+      alert(`Senha do funcionário ${result.employee.name} atualizada com sucesso!`)
+      setEditingEmployeePassword(null)
+      setNewPassword("")
+    } catch (error) {
+      console.error("[v0] Error updating password:", error)
+      alert("Erro ao atualizar senha. Tente novamente.")
+    }
+  }
+
+  const loadPartners = async () => {
+    try {
+      const response = await fetch("/api/partners/list")
+      const data = await response.json()
+
+      if (data.partners) {
+        console.log("[v0] Loaded partners:", data.partners)
+        setPartners(data.partners)
+      }
+    } catch (error) {
+      console.error("[v0] Error loading partners:", error)
+    }
+  }
+
+  useEffect(() => {
+    loadEmployees()
+    loadFeedbacks()
+    loadPartners() // Load partners when the component mounts
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50">
@@ -797,7 +1039,15 @@ export default function AdminDashboard() {
                 <span className="hidden sm:inline">Início</span>
               </Button>
             </Link>
-            <h1 className="text-lg md:text-2xl font-bold">PAINEL DE CONTROLE DO PARQUE</h1>
+            <div>
+              <h1 className="text-lg md:text-2xl font-bold">PAINEL DE CONTROLE DO PARQUE</h1>
+              {loggedEmployee && (
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse" />
+                  <p className="text-sm italic text-white/80">{greeting}</p>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
@@ -842,6 +1092,13 @@ export default function AdminDashboard() {
             >
               <Handshake className="w-8 h-8 md:w-10 md:h-10" />
               <span className="text-sm md:text-lg font-bold">Parceiros</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="sculptures"
+              className="flex flex-col items-center justify-center gap-2 py-6 px-4 rounded-2xl border-2 border-amber-300 bg-white shadow-md data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#F59E0B] data-[state=active]:via-[#1ed5bb] data-[state=active]:to-[#F59E0B] data-[state=active]:text-white data-[state=active]:border-[#F59E0B] data-[state=active]:shadow-xl data-[state=active]:scale-105 transition-all duration-300 hover:shadow-lg hover:scale-102"
+            >
+              <Package className="w-8 h-8 md:w-10 md:h-10" />
+              <span className="text-sm md:text-lg font-bold">Esculturas</span>
             </TabsTrigger>
             <TabsTrigger
               value="data"
@@ -1575,50 +1832,179 @@ export default function AdminDashboard() {
                   {partners.map((partner) => (
                     <div
                       key={partner.id}
-                      className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200"
+                      className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="w-12 h-12 rounded-full bg-[#1694f2] flex items-center justify-center text-white">
-                            {partner.type === "Escola" && <School className="w-6 h-6" />}
-                            {partner.type === "Hotel" && <Hotel className="w-6 h-6" />}
-                            {partner.type === "Agência" && <Plane className="w-6 h-6" />}
-                            {partner.type === "Empresa" && <Briefcase className="w-6 h-6" />}
-                          </div>
-                          <div>
-                            <h4 className="font-semibold text-lg">{partner.name}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {partner.type} • Contato: {partner.contact}
-                            </p>
-                            <p className="text-sm text-muted-foreground">{partner.email}</p>
-                          </div>
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#16A34A] to-[#1ed5bb] flex items-center justify-center text-white">
+                          {getPartnerIcon(partner.organization)}
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => handleEditPartner(partner)}
-                            variant="outline"
-                            size="sm"
-                            className="bg-transparent hover:bg-blue-50"
-                          >
-                            <Edit2 className="w-4 h-4 mr-1" />
-                            Editar
-                          </Button>
-                          <Button
-                            onClick={() => handleDeletePartner(partner.id)}
-                            variant="outline"
-                            size="sm"
-                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Excluir
-                          </Button>
+                        <div>
+                          <h4 className="font-semibold text-lg">{partner.name}</h4>
+                          <p className="text-sm text-muted-foreground">Organização: {partner.organization}</p>
+                          {partner.email && <p className="text-sm text-muted-foreground">Email: {partner.email}</p>}
+                          {partner.phone && <p className="text-sm text-muted-foreground">Telefone: {partner.phone}</p>}
                         </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleEditPartner(partner)}
+                          variant="outline"
+                          size="sm"
+                          className="bg-transparent hover:bg-blue-50"
+                        >
+                          <Edit2 className="w-4 h-4 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          onClick={() => handleDeletePartner(partner.id)}
+                          variant="outline"
+                          size="sm"
+                          className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Excluir
+                        </Button>
                       </div>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="sculptures" className="space-y-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">Esculturas Cadastradas</h2>
+              <Button
+                onClick={() => setShowCreateSculpture(true)}
+                className="bg-gradient-to-r from-[#F59E0B] to-[#1ed5bb] hover:from-[#F59E0B]/90 hover:to-[#1ed5bb]/90 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Escultura
+              </Button>
+            </div>
+
+            {showCreateSculpture && (
+              <Card className="modern-card">
+                <CardHeader>
+                  <CardTitle>Nova Escultura</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="sculpture-image">Imagem da Escultura</Label>
+                    <Input
+                      id="sculpture-image"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          setImageFile(file)
+                          console.log("[v0] Image file selected:", file.name)
+                        }
+                      }}
+                    />
+                    {imageFile && (
+                      <p className="text-sm text-muted-foreground">Arquivo selecionado: {imageFile.name}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sculpture-name">Nome</Label>
+                    <Input
+                      id="sculpture-name"
+                      value={newSculpture.name}
+                      onChange={(e) => setNewSculpture({ ...newSculpture, name: e.target.value })}
+                      placeholder="Nome da escultura"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sculpture-description">Descrição</Label>
+                    <Textarea
+                      id="sculpture-description"
+                      value={newSculpture.description}
+                      onChange={(e) => setNewSculpture({ ...newSculpture, description: e.target.value })}
+                      placeholder="Descrição da escultura"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sculpture-curiosity">Curiosidade</Label>
+                    <Textarea
+                      id="sculpture-curiosity"
+                      value={newSculpture.curiosity}
+                      onChange={(e) => setNewSculpture({ ...newSculpture, curiosity: e.target.value })}
+                      placeholder="Curiosidade sobre a escultura"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleCreateSculpture} disabled={uploadingImage}>
+                      {uploadingImage ? "Enviando..." : "Criar Escultura"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowCreateSculpture(false)
+                        setImageFile(null)
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {sculptures.map((sculpture) => (
+                <Card key={sculpture.id} className="modern-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-muted border border-gray-200">
+                        <img
+                          src={
+                            sculpture.image_url ||
+                            `/placeholder.svg?height=80&width=80&query=${encodeURIComponent(sculpture.name) || "/placeholder.svg"}`
+                          }
+                          alt={sculpture.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = `/placeholder.svg?height=80&width=80&query=${encodeURIComponent(sculpture.name)}`
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-lg mb-1">{sculpture.name}</h3>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Código: ESC{String(sculpture.code).padStart(3, "0")}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditingSculpture(sculpture)
+                              setImageFile(null)
+                            }}
+                          >
+                            <Pencil className="w-3 h-3 mr-1" />
+                            Editar
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleDeleteSculpture(sculpture.id)}>
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Excluir
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handlePrintQRCode(sculpture)}>
+                            <QrCode className="w-3 h-3 mr-1" />
+                            QR Code
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </TabsContent>
 
           <TabsContent value="data" className="space-y-6">
@@ -1668,160 +2054,6 @@ export default function AdminDashboard() {
                   <Download className="w-5 h-5 mr-2" />
                   Exportar Dados
                 </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="modern-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="w-6 h-6 text-[#A855F7]" />
-                  <span className="text-2xl font-bold">
-                    {editingSculpture ? "Editar Escultura" : "Cadastrar Escultura"}
-                  </span>
-                </CardTitle>
-                <CardDescription>
-                  {editingSculpture
-                    ? "Atualize as informações da escultura"
-                    : "Adicione novas esculturas ao catálogo do parque"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={editingSculpture ? handleUpdateSculpture : handleCreateSculpture} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="sculpture-name">Nome da Escultura</Label>
-                    <Input
-                      id="sculpture-name"
-                      placeholder="Ex: Coluna de Cristal"
-                      value={newSculpture.name}
-                      onChange={(e) => setNewSculpture({ ...newSculpture, name: e.target.value })}
-                      required
-                      className="h-12"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="sculpture-description">Descrição</Label>
-                    <Textarea
-                      id="sculpture-description"
-                      placeholder="Descreva a escultura..."
-                      value={newSculpture.description}
-                      onChange={(e) => setNewSculpture({ ...newSculpture, description: e.target.value })}
-                      required
-                      className="min-h-24"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="sculpture-curiosity">Curiosidade</Label>
-                    <Textarea
-                      id="sculpture-curiosity"
-                      placeholder="Adicione uma curiosidade sobre a escultura..."
-                      value={newSculpture.curiosity}
-                      onChange={(e) => setNewSculpture({ ...newSculpture, curiosity: e.target.value })}
-                      required
-                      className="min-h-24"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="sculpture-image">Imagem da Escultura</Label>
-                    <div className="border-2 border-dashed border-purple-300 rounded-xl p-6 bg-purple-50/50">
-                      <Input
-                        id="sculpture-image"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => setSculptureImage(e.target.files?.[0] || null)}
-                        className="hidden"
-                      />
-                      <Label
-                        htmlFor="sculpture-image"
-                        className="flex items-center justify-center h-12 px-4 border-2 border-purple-500 bg-white text-purple-700 rounded-lg cursor-pointer hover:bg-purple-50 transition-colors font-semibold"
-                      >
-                        <Upload className="w-5 h-5 mr-2" />
-                        {sculptureImage ? sculptureImage.name : "Upload da Imagem"}
-                      </Label>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Button type="submit" className="flex-1 h-12 bg-[#A855F7] hover:bg-[#A855F7]/90 text-white text-lg">
-                      {editingSculpture ? (
-                        <>
-                          <Edit2 className="w-5 h-5 mr-2" />
-                          Atualizar Escultura
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-5 h-5 mr-2" />
-                          Cadastrar Escultura
-                        </>
-                      )}
-                    </Button>
-                    {editingSculpture && (
-                      <Button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        variant="outline"
-                        className="h-12 px-6 text-lg bg-transparent"
-                      >
-                        Cancelar
-                      </Button>
-                    )}
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-
-            <Card className="modern-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ImageIcon className="w-6 h-6 text-[#A855F7]" />
-                  <span className="text-2xl font-bold">Esculturas Cadastradas</span>
-                </CardTitle>
-                <CardDescription>Total: {sculptures.length} esculturas</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {sculptures.map((sculpture) => (
-                    <div
-                      key={sculpture.id}
-                      className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-mono bg-purple-200 text-purple-800 px-2 py-1 rounded">
-                              {sculpture.code}
-                            </span>
-                            <h4 className="font-semibold text-lg">{sculpture.name}</h4>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">{sculpture.description}</p>
-                          <p className="text-sm text-purple-700 italic">{sculpture.curiosity}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => handleEditSculpture(sculpture)}
-                            variant="outline"
-                            size="sm"
-                            className="bg-transparent hover:bg-blue-50"
-                          >
-                            <Edit2 className="w-4 h-4 mr-1" />
-                            Editar
-                          </Button>
-                          <Button
-                            onClick={() => handleDeleteSculpture(sculpture.id)}
-                            variant="outline"
-                            size="sm"
-                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </CardContent>
             </Card>
           </TabsContent>

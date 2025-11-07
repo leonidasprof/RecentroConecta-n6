@@ -17,7 +17,8 @@ import {
   Facebook,
   Youtube,
   Languages,
-  Palette,
+  Landmark,
+  BookOpen,
 } from "lucide-react"
 import TicketModal from "@/components/ticket-modal"
 import LoginModal from "@/components/login-modal"
@@ -75,7 +76,7 @@ export default function RecentroConecta() {
   useEffect(() => {
     const loadParkStatus = async () => {
       const supabase = getSupabase()
-      const { data, error } = await supabase.from("park_settings").select("is_open").single()
+      const { data, error } = await supabase.from("park_settings").select("is_open").limit(1).single()
 
       if (data && !error) {
         setParkOpen(data.is_open)
@@ -212,7 +213,7 @@ export default function RecentroConecta() {
                       }}
                       className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-2"
                     >
-                      <Palette className="w-4 h-4" />
+                      <BookOpen className="w-4 h-4" />
                       Sobre o Parque
                     </button>
                     <button
@@ -373,7 +374,7 @@ export default function RecentroConecta() {
           <Card className="modern-card animate-fade-in">
             <CardHeader>
               <CardTitle className="text-2xl gradient-text flex items-center gap-3">
-                <Palette className="w-7 h-7 text-purple-600" />
+                <Landmark className="w-7 h-7" />
                 Conheça as Esculturas
               </CardTitle>
             </CardHeader>

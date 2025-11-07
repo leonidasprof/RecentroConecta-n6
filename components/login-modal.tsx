@@ -79,21 +79,21 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       onClick={handleBackdropClick}
     >
       <Card className="w-full max-w-md shadow-2xl rounded-2xl p-0 border-0" onClick={(e) => e.stopPropagation()}>
-        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-28 m-0">
+        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-20 m-0">
           <div className="absolute inset-0 bg-gradient-to-b from-blue-900/90 via-blue-800/80 to-cyan-700/90" />
 
           <Button
             variant="ghost"
             size="sm"
             onClick={handleClose}
-            className="absolute right-4 top-4 text-white hover:bg-white/20 rounded-full w-10 h-10 p-0 z-10 transition-all hover:scale-110"
+            className="absolute right-4 top-3 text-white hover:bg-white/20 rounded-full w-8 h-8 p-0 z-10 transition-all hover:scale-110"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </Button>
 
-          <div className="relative z-10 flex items-center justify-center h-full w-full text-white gap-3 px-6">
-            <Lock className="w-7 h-7" />
-            <h2 className="text-2xl font-bold">Login Administrativo</h2>
+          <div className="relative z-10 flex items-center justify-center h-full w-full text-white gap-2 px-6">
+            <Lock className="w-5 h-5" />
+            <h2 className="text-xl font-bold">Login Administrativo</h2>
           </div>
         </CardHeader>
 
