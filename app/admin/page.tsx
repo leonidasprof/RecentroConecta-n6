@@ -367,6 +367,18 @@ export default function AdminDashboard() {
 
     const supabase = getSupabase()
 
+    const { data: existingEmployee } = await supabase
+      .from("employees")
+      .select("email")
+      .eq("email", newEmployee.email)
+      .single()
+
+    if (existingEmployee) {
+      console.log("[v0] Email already exists:", newEmployee.email)
+      alert("Este email já está cadastrado no sistema. Use outro email.")
+      return
+    }
+
     const tempPassword = `temp${Math.random().toString(36).slice(-6)}`
     console.log("[v0] Creating employee with temp password:", tempPassword)
 
@@ -383,7 +395,7 @@ export default function AdminDashboard() {
 
     if (error) {
       console.error("[v0] Error creating employee:", error)
-      alert("Erro ao criar funcionário. Verifique se o email já está cadastrado.")
+      alert("Erro ao criar funcionário. Verifique os dados e tente novamente.")
       return
     }
 
