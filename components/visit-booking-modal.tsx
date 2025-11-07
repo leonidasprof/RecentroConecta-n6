@@ -263,7 +263,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
       onClick={handleClose}
     >
       <Card
-        className="w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl animate-fade-in rounded-2xl p-0 flex flex-col"
+        className="w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl animate-fade-in rounded-2xl p-0 flex flex-col border-0"
         onClick={(e) => e.stopPropagation()}
       >
         <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-32 m-0 flex-shrink-0">

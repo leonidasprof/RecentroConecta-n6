@@ -183,7 +183,7 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
       onClick={handleClose}
     >
       <Card
-        className="w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in rounded-2xl p-0"
+        className="w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in rounded-2xl p-0 border-0"
         onClick={(e) => e.stopPropagation()}
       >
         <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-40 sm:h-44 m-0">

@@ -61,7 +61,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md shadow-2xl rounded-2xl p-0">
+      <Card className="w-full max-w-md shadow-2xl rounded-2xl p-0 border-0">
         <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-20 m-0">
           <div className="absolute inset-0 bg-gradient-to-b from-blue-900/90 via-blue-800/80 to-cyan-700/90" />
 

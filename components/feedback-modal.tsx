@@ -64,7 +64,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto relative border-0 shadow-2xl rounded-2xl">
         <div className="absolute inset-0 z-0">
           <Image src="/images/fundo-avaliar.jpeg" alt="Parque de Esculturas" fill className="object-cover opacity-20" />
         </div>
