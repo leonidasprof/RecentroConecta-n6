@@ -328,20 +328,45 @@ export default function AdminDashboard() {
     setNewEmployee({ name: "", email: "", role: "" })
   }
 
-  const handleCreateEmployee = (e: React.FormEvent) => {
+  const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault()
-    const generatedPassword = Math.random().toString(36).slice(-8)
-    const newEmployeeData = {
-      id: employees.length + 1,
-      name: newEmployee.name,
-      email: newEmployee.email,
-      role: newEmployee.role,
+
+    const supabase = getSupabase()
+
+    const tempPassword = Math.random().toString(36).slice(-8)
+
+    const { data, error } = await supabase
+      .from("employees")
+      .insert({
+        name: newEmployee.name,
+        email: newEmployee.email,
+        role: newEmployee.role,
+        password_hash: tempPassword, // Em produção, usar bcrypt
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error("[v0] Error creating employee:", error)
+      alert("Erro ao criar funcionário. Verifique se o email já está cadastrado.")
+      return
     }
-    setEmployees([...employees, newEmployeeData])
-    alert(
-      `Funcionário criado!\nNome: ${newEmployee.name}\nEmail: ${newEmployee.email}\nSenha gerada: ${generatedPassword}`,
-    )
-    setNewEmployee({ name: "", email: "", role: "" })
+
+    if (data) {
+      setEmployees([
+        ...employees,
+        {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          role: data.role,
+        },
+      ])
+      alert(
+        `Funcionário criado!\nNome: ${data.name}\nEmail: ${data.email}\nSenha temporária: ${tempPassword}\n\nO funcionário deve alterar a senha no primeiro acesso.`,
+      )
+      setNewEmployee({ name: "", email: "", role: "" })
+    }
   }
 
   const handleEditPartner = (partner: any) => {

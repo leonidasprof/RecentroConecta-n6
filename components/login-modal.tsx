@@ -15,16 +15,47 @@ interface LoginModalProps {
 
 export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [credentials, setCredentials] = useState({ username: "", password: "" })
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
   const router = useRouter()
 
   if (!isOpen) return null
 
-  const handleLogin = () => {
-    if (credentials.username === "admin" && credentials.password === "admin") {
-      onClose()
-      router.push("/admin")
-    } else {
-      alert("Credenciais inválidas. Use: admin / admin")
+  const handleLogin = async () => {
+    setIsLoading(true)
+    setError("")
+
+    try {
+      console.log("[v0] Attempting login for:", credentials.username)
+
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: credentials.username,
+          password: credentials.password,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        console.log("[v0] Login successful:", data.employee.name)
+        // Salvar dados do funcionário no localStorage
+        localStorage.setItem("employee", JSON.stringify(data.employee))
+        onClose()
+        router.push("/admin")
+      } else {
+        console.log("[v0] Login failed:", data.error)
+        setError(data.error || "Email ou senha inválidos")
+      }
+    } catch (err) {
+      console.error("[v0] Login error:", err)
+      setError("Erro ao conectar com o servidor. Tente novamente.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -52,14 +83,16 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         <CardContent className="p-6 space-y-4">
           <div>
             <Label htmlFor="username" className="text-base font-medium">
-              Usuário
+              Email
             </Label>
             <Input
               id="username"
+              type="email"
               value={credentials.username}
               onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
               className="mt-1"
-              placeholder="Digite seu usuário"
+              placeholder="Digite seu email"
+              disabled={isLoading}
             />
           </div>
 
@@ -74,14 +107,26 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
               onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
               className="mt-1"
               placeholder="Digite sua senha"
+              disabled={isLoading}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  handleLogin()
+                }
+              }}
             />
           </div>
 
-          <Button onClick={handleLogin} className="w-full bg-[#1694f2] hover:bg-[#1694f2]/90 text-white">
-            Entrar
+          {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
+
+          <Button
+            onClick={handleLogin}
+            className="w-full bg-[#1694f2] hover:bg-[#1694f2]/90 text-white"
+            disabled={isLoading}
+          >
+            {isLoading ? "Entrando..." : "Entrar"}
           </Button>
 
-          <p className="text-xs text-muted-foreground text-center">Demo: admin / admin</p>
+          <p className="text-xs text-muted-foreground text-center">Use o email cadastrado no sistema de funcionários</p>
         </CardContent>
       </Card>
     </div>
