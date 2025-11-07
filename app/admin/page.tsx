@@ -51,6 +51,7 @@ import {
   Plus,
   Edit2,
   Upload,
+  Trash2,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -59,6 +60,15 @@ import QrScanner from "@/components/qr-scanner" // Imported QrScanner
 
 export default function AdminDashboard() {
   const [newEmployee, setNewEmployee] = useState({ name: "", email: "", role: "" })
+  const [employees, setEmployees] = useState([
+    { id: 1, name: "Carlos Silva", email: "carlos@parque.com", role: "admin" },
+    { id: 2, name: "Ana Santos", email: "ana@parque.com", role: "guide" },
+    { id: 3, name: "Pedro Costa", email: "pedro@parque.com", role: "manager" },
+  ])
+  const [editingEmployee, setEditingEmployee] = useState<any>(null)
+  const [editingEmployeePassword, setEditingEmployeePassword] = useState<any>(null)
+  const [newPassword, setNewPassword] = useState("")
+
   const [newPartner, setNewPartner] = useState({
     name: "",
     type: "",
@@ -67,6 +77,8 @@ export default function AdminDashboard() {
     phone: "",
     address: "",
   })
+  const [editingPartner, setEditingPartner] = useState<any>(null)
+
   const [partners, setPartners] = useState([
     { id: 1, name: "Colégio Santa Maria", type: "Escola", contact: "Maria Santos", email: "contato@santamaria.edu.br" },
     { id: 2, name: "Hotel Atlante Plaza", type: "Hotel", contact: "João Silva", email: "eventos@atlanteplaza.com.br" },
@@ -85,6 +97,8 @@ export default function AdminDashboard() {
   // Added states for QR Scanner integration
   const [showQrScanner, setShowQrScanner] = useState(false)
   const [scanResult, setScanResult] = useState<any>(null)
+
+  const [editingSculpture, setEditingSculpture] = useState<any>(null)
 
   useEffect(() => {
     const loadParkStatus = async () => {
@@ -258,13 +272,121 @@ export default function AdminDashboard() {
     },
   ]
 
+  const handleEditEmployee = (employee: any) => {
+    setEditingEmployee(employee)
+    setNewEmployee({
+      name: employee.name,
+      email: employee.email,
+      role: employee.role,
+    })
+  }
+
+  const handleUpdateEmployee = (e: React.FormEvent) => {
+    e.preventDefault()
+    setEmployees(
+      employees.map((emp) =>
+        emp.id === editingEmployee.id
+          ? {
+              ...emp,
+              name: newEmployee.name,
+              email: newEmployee.email,
+              role: newEmployee.role,
+            }
+          : emp,
+      ),
+    )
+    alert(`Funcionário atualizado!\nNome: ${newEmployee.name}\nEmail: ${newEmployee.email}`)
+    setNewEmployee({ name: "", email: "", role: "" })
+    setEditingEmployee(null)
+  }
+
+  const handleDeleteEmployee = (employeeId: number) => {
+    if (!confirm("Tem certeza que deseja excluir este funcionário?")) {
+      return
+    }
+    setEmployees(employees.filter((emp) => emp.id !== employeeId))
+    alert("Funcionário excluído com sucesso!")
+  }
+
+  const handleEditPassword = (employee: any) => {
+    setEditingEmployeePassword(employee)
+    setNewPassword("")
+  }
+
+  const handleSavePassword = () => {
+    if (!newPassword || newPassword.length < 6) {
+      alert("A senha deve ter no mínimo 6 caracteres!")
+      return
+    }
+    alert(`Senha atualizada com sucesso para ${editingEmployeePassword.name}!\nNova senha: ${newPassword}`)
+    setEditingEmployeePassword(null)
+    setNewPassword("")
+  }
+
+  const handleCancelEmployeeEdit = () => {
+    setEditingEmployee(null)
+    setNewEmployee({ name: "", email: "", role: "" })
+  }
+
   const handleCreateEmployee = (e: React.FormEvent) => {
     e.preventDefault()
     const generatedPassword = Math.random().toString(36).slice(-8)
+    const newEmployeeData = {
+      id: employees.length + 1,
+      name: newEmployee.name,
+      email: newEmployee.email,
+      role: newEmployee.role,
+    }
+    setEmployees([...employees, newEmployeeData])
     alert(
       `Funcionário criado!\nNome: ${newEmployee.name}\nEmail: ${newEmployee.email}\nSenha gerada: ${generatedPassword}`,
     )
     setNewEmployee({ name: "", email: "", role: "" })
+  }
+
+  const handleEditPartner = (partner: any) => {
+    setEditingPartner(partner)
+    setNewPartner({
+      name: partner.name,
+      type: partner.type,
+      contact: partner.contact,
+      email: partner.email,
+      phone: partner.phone || "",
+      address: partner.address || "",
+    })
+  }
+
+  const handleUpdatePartner = (e: React.FormEvent) => {
+    e.preventDefault()
+    setPartners(
+      partners.map((p) =>
+        p.id === editingPartner.id
+          ? {
+              ...p,
+              name: newPartner.name,
+              type: newPartner.type,
+              contact: newPartner.contact,
+              email: newPartner.email,
+            }
+          : p,
+      ),
+    )
+    alert(`Parceiro atualizado!\nNome: ${newPartner.name}\nTipo: ${newPartner.type}`)
+    setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
+    setEditingPartner(null)
+  }
+
+  const handleDeletePartner = (partnerId: number) => {
+    if (!confirm("Tem certeza que deseja excluir este parceiro?")) {
+      return
+    }
+    setPartners(partners.filter((p) => p.id !== partnerId))
+    alert("Parceiro excluído com sucesso!")
+  }
+
+  const handleCancelPartnerEdit = () => {
+    setEditingPartner(null)
+    setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
   }
 
   const handleCreatePartner = (e: React.FormEvent) => {
@@ -420,6 +542,89 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleEditSculpture = (sculpture: any) => {
+    setEditingSculpture(sculpture)
+    setNewSculpture({
+      name: sculpture.name,
+      description: sculpture.description,
+      curiosity: sculpture.curiosity,
+    })
+  }
+
+  const handleUpdateSculpture = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const supabase = getSupabase()
+
+    // TODO: Upload image to storage if sculptureImage exists
+    const imageUrl = editingSculpture.image_url
+    if (sculptureImage) {
+      console.log("[v0] Would upload image:", sculptureImage.name)
+    }
+
+    const { data, error } = await supabase
+      .from("sculptures")
+      .update({
+        name: newSculpture.name,
+        description: newSculpture.description,
+        curiosity: newSculpture.curiosity,
+        image_url: imageUrl,
+      })
+      .eq("id", editingSculpture.id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("[v0] Error updating sculpture:", error)
+      alert("Erro ao atualizar escultura. Tente novamente.")
+      return
+    }
+
+    if (data) {
+      setSculptures(
+        sculptures.map((s) =>
+          s.id === data.id
+            ? {
+                id: data.id,
+                code: data.code,
+                name: data.name,
+                description: data.description,
+                curiosity: data.curiosity,
+              }
+            : s,
+        ),
+      )
+      alert(`Escultura atualizada!\nCódigo: ${data.code}\nNome: ${data.name}`)
+      setNewSculpture({ name: "", description: "", curiosity: "" })
+      setSculptureImage(null)
+      setEditingSculpture(null)
+    }
+  }
+
+  const handleDeleteSculpture = async (sculptureId: number) => {
+    if (!confirm("Tem certeza que deseja excluir esta escultura?")) {
+      return
+    }
+
+    const supabase = getSupabase()
+    const { error } = await supabase.from("sculptures").delete().eq("id", sculptureId)
+
+    if (error) {
+      console.error("[v0] Error deleting sculpture:", error)
+      alert("Erro ao excluir escultura. Tente novamente.")
+      return
+    }
+
+    setSculptures(sculptures.filter((s) => s.id !== sculptureId))
+    alert("Escultura excluída com sucesso!")
+  }
+
+  const handleCancelEdit = () => {
+    setEditingSculpture(null)
+    setNewSculpture({ name: "", description: "", curiosity: "" })
+    setSculptureImage(null)
+  }
+
   const renderPieLabel = (entry: any) => {
     const percent = (entry.percent * 100).toFixed(0)
     return `${entry.name}\n${percent}%`
@@ -441,7 +646,7 @@ export default function AdminDashboard() {
                 <span className="hidden sm:inline">Início</span>
               </Button>
             </Link>
-            <h1 className="text-lg md:text-2xl font-bold">Controle do Parque</h1>
+            <h1 className="text-lg md:text-2xl font-bold">PAINEL DE CONTROLE DO PARQUE</h1>
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
@@ -859,12 +1064,18 @@ export default function AdminDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <UserPlus className="w-6 h-6 text-[#1694f2]" />
-                  Cadastrar Novo Funcionário
+                  <span className="text-2xl font-bold">
+                    {editingEmployee ? "Editar Funcionário" : "Cadastrar Novo Funcionário"}
+                  </span>
                 </CardTitle>
-                <CardDescription>Preencha os dados para criar um novo funcionário e gerar uma senha</CardDescription>
+                <CardDescription>
+                  {editingEmployee
+                    ? "Atualize os dados do funcionário"
+                    : "Preencha os dados para criar um novo funcionário e gerar uma senha"}
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleCreateEmployee} className="space-y-4">
+                <form onSubmit={editingEmployee ? handleUpdateEmployee : handleCreateEmployee} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Nome Completo</Label>
@@ -908,17 +1119,89 @@ export default function AdminDashboard() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button
-                    type="submit"
-                    className="w-full h-12 bg-[#1694f2] hover:bg-[#1694f2]/90 text-white text-lg modern-button"
-                  >
-                    <UserPlus className="w-5 h-5 mr-2" />
-                    Criar Funcionário e Gerar Senha
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button
+                      type="submit"
+                      className="flex-1 h-12 bg-[#1694f2] hover:bg-[#1694f2]/90 text-white text-lg modern-button"
+                    >
+                      <UserPlus className="w-5 h-5 mr-2" />
+                      {editingEmployee ? "Atualizar Funcionário" : "Criar Funcionário e Gerar Senha"}
+                    </Button>
+                    {editingEmployee && (
+                      <Button
+                        type="button"
+                        onClick={handleCancelEmployeeEdit}
+                        variant="outline"
+                        className="h-12 px-6 text-lg bg-transparent"
+                      >
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
                 </form>
               </CardContent>
             </Card>
 
+            <Card className="modern-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-6 h-6 text-[#1694f2]" />
+                  <span className="text-2xl font-bold">Funcionários Cadastrados</span>
+                </CardTitle>
+                <CardDescription>
+                  Lista de todos os funcionários do parque • Total: {employees.length} funcionários
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {employees.map((employee) => (
+                    <div
+                      key={employee.id}
+                      className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-lg">{employee.name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {employee.email} • {employee.role}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => handleEditEmployee(employee)}
+                            variant="outline"
+                            size="sm"
+                            className="bg-transparent hover:bg-blue-50"
+                          >
+                            <Edit2 className="w-4 h-4 mr-1" />
+                            Editar
+                          </Button>
+                          <Button
+                            onClick={() => handleEditPassword(employee)}
+                            variant="outline"
+                            size="sm"
+                            className="bg-transparent hover:bg-purple-50 text-purple-600 hover:text-purple-700"
+                          >
+                            🔒 Senha
+                          </Button>
+                          <Button
+                            onClick={() => handleDeleteEmployee(employee.id)}
+                            variant="outline"
+                            size="sm"
+                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Excluir
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Status do Parque */}
             <Card className="modern-card border-2 border-red-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -988,14 +1271,18 @@ export default function AdminDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="w-6 h-6 text-[#1694f2]" />
-                  Cadastrar Novo Parceiro
+                  <span className="text-2xl font-bold">
+                    {editingPartner ? "Editar Parceiro" : "Cadastrar Novo Parceiro"}
+                  </span>
                 </CardTitle>
                 <CardDescription>
-                  Cadastre escolas, hotéis, agências de turismo e empresas parceiras do parque
+                  {editingPartner
+                    ? "Atualize os dados do parceiro"
+                    : "Cadastre escolas, hotéis, agências de turismo e empresas parceiras do parque"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleCreatePartner} className="space-y-4">
+                <form onSubmit={editingPartner ? handleUpdatePartner : handleCreatePartner} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="partner-name">Nome do Parceiro</Label>
@@ -1099,23 +1386,34 @@ export default function AdminDashboard() {
                       />
                     </div>
                   </div>
-                  <Button
-                    type="submit"
-                    className="w-full h-12 bg-[#1694f2] hover:bg-[#1694f2]/90 text-white text-lg modern-button"
-                  >
-                    <Building2 className="w-5 h-5 mr-2" />
-                    Cadastrar Parceiro
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button
+                      type="submit"
+                      className="flex-1 h-12 bg-[#1694f2] hover:bg-[#1694f2]/90 text-white text-lg modern-button"
+                    >
+                      <Building2 className="w-5 h-5 mr-2" />
+                      {editingPartner ? "Atualizar Parceiro" : "Cadastrar Parceiro"}
+                    </Button>
+                    {editingPartner && (
+                      <Button
+                        type="button"
+                        onClick={handleCancelPartnerEdit}
+                        variant="outline"
+                        className="h-12 px-6 text-lg bg-transparent"
+                      >
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
                 </form>
               </CardContent>
             </Card>
 
-            {/* Partners List */}
             <Card className="modern-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-6 h-6 text-[#1694f2]" />
-                  Parceiros Cadastrados
+                  <span className="text-2xl font-bold">Parceiros Cadastrados</span>
                 </CardTitle>
                 <CardDescription>
                   Lista de todos os parceiros do parque • Total: {partners.length} parceiros
@@ -1126,26 +1424,45 @@ export default function AdminDashboard() {
                   {partners.map((partner) => (
                     <div
                       key={partner.id}
-                      className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200 flex items-center justify-between"
+                      className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-[#1694f2] flex items-center justify-center text-white">
-                          {partner.type === "Escola" && <School className="w-6 h-6" />}
-                          {partner.type === "Hotel" && <Hotel className="w-6 h-6" />}
-                          {partner.type === "Agência" && <Plane className="w-6 h-6" />}
-                          {partner.type === "Empresa" && <Briefcase className="w-6 h-6" />}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="w-12 h-12 rounded-full bg-[#1694f2] flex items-center justify-center text-white">
+                            {partner.type === "Escola" && <School className="w-6 h-6" />}
+                            {partner.type === "Hotel" && <Hotel className="w-6 h-6" />}
+                            {partner.type === "Agência" && <Plane className="w-6 h-6" />}
+                            {partner.type === "Empresa" && <Briefcase className="w-6 h-6" />}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-lg">{partner.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {partner.type} • Contato: {partner.contact}
+                            </p>
+                            <p className="text-sm text-muted-foreground">{partner.email}</p>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-lg">{partner.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {partner.type} • Contato: {partner.contact}
-                          </p>
-                          <p className="text-sm text-muted-foreground">{partner.email}</p>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => handleEditPartner(partner)}
+                            variant="outline"
+                            size="sm"
+                            className="bg-transparent hover:bg-blue-50"
+                          >
+                            <Edit2 className="w-4 h-4 mr-1" />
+                            Editar
+                          </Button>
+                          <Button
+                            onClick={() => handleDeletePartner(partner.id)}
+                            variant="outline"
+                            size="sm"
+                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Excluir
+                          </Button>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm" className="modern-button bg-transparent">
-                        Editar
-                      </Button>
                     </div>
                   ))}
                 </div>
@@ -1158,7 +1475,7 @@ export default function AdminDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Download className="w-6 h-6 text-[#A855F7]" />
-                  Exportar Dados
+                  <span className="text-2xl font-bold">Exportar Dados</span>
                 </CardTitle>
                 <CardDescription>Escolha o período e formato para exportar os dados do parque</CardDescription>
               </CardHeader>
@@ -1207,12 +1524,18 @@ export default function AdminDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Plus className="w-6 h-6 text-[#A855F7]" />
-                  Cadastrar Escultura
+                  <span className="text-2xl font-bold">
+                    {editingSculpture ? "Editar Escultura" : "Cadastrar Escultura"}
+                  </span>
                 </CardTitle>
-                <CardDescription>Adicione novas esculturas ao catálogo do parque</CardDescription>
+                <CardDescription>
+                  {editingSculpture
+                    ? "Atualize as informações da escultura"
+                    : "Adicione novas esculturas ao catálogo do parque"}
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleCreateSculpture} className="space-y-4">
+                <form onSubmit={editingSculpture ? handleUpdateSculpture : handleCreateSculpture} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="sculpture-name">Nome da Escultura</Label>
                     <Input
@@ -1269,10 +1592,31 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full h-12 bg-[#A855F7] hover:bg-[#A855F7]/90 text-white text-lg">
-                    <Plus className="w-5 h-5 mr-2" />
-                    Cadastrar Escultura
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button type="submit" className="flex-1 h-12 bg-[#A855F7] hover:bg-[#A855F7]/90 text-white text-lg">
+                      {editingSculpture ? (
+                        <>
+                          <Edit2 className="w-5 h-5 mr-2" />
+                          Atualizar Escultura
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-5 h-5 mr-2" />
+                          Cadastrar Escultura
+                        </>
+                      )}
+                    </Button>
+                    {editingSculpture && (
+                      <Button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        variant="outline"
+                        className="h-12 px-6 text-lg bg-transparent"
+                      >
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
                 </form>
               </CardContent>
             </Card>
@@ -1281,7 +1625,7 @@ export default function AdminDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ImageIcon className="w-6 h-6 text-[#A855F7]" />
-                  Esculturas Cadastradas
+                  <span className="text-2xl font-bold">Esculturas Cadastradas</span>
                 </CardTitle>
                 <CardDescription>Total: {sculptures.length} esculturas</CardDescription>
               </CardHeader>
@@ -1293,7 +1637,7 @@ export default function AdminDashboard() {
                       className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200"
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <div>
+                        <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-mono bg-purple-200 text-purple-800 px-2 py-1 rounded">
                               {sculpture.code}
@@ -1303,9 +1647,26 @@ export default function AdminDashboard() {
                           <p className="text-sm text-muted-foreground mb-2">{sculpture.description}</p>
                           <p className="text-sm text-purple-700 italic">{sculpture.curiosity}</p>
                         </div>
-                        <Button variant="outline" size="sm" className="bg-transparent">
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => handleEditSculpture(sculpture)}
+                            variant="outline"
+                            size="sm"
+                            className="bg-transparent hover:bg-blue-50"
+                          >
+                            <Edit2 className="w-4 h-4 mr-1" />
+                            Editar
+                          </Button>
+                          <Button
+                            onClick={() => handleDeleteSculpture(sculpture.id)}
+                            variant="outline"
+                            size="sm"
+                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Excluir
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1452,6 +1813,45 @@ export default function AdminDashboard() {
               <Button onClick={() => setScanResult(null)} className="w-full">
                 Fechar
               </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {editingEmployeePassword && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">🔒 Editar Senha</CardTitle>
+              <CardDescription>Alterar senha do funcionário: {editingEmployeePassword.name}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Nova Senha</Label>
+                <Input
+                  id="new-password"
+                  type="text"
+                  placeholder="Digite a nova senha (mínimo 6 caracteres)"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="h-12"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button onClick={handleSavePassword} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white">
+                  Salvar Senha
+                </Button>
+                <Button
+                  onClick={() => {
+                    setEditingEmployeePassword(null)
+                    setNewPassword("")
+                  }}
+                  variant="outline"
+                >
+                  Cancelar
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

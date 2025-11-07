@@ -369,7 +369,7 @@ export default function RecentroConecta() {
 
               <Button
                 onClick={() => setShowSculptureScanner(true)}
-                className="w-full h-14 text-base font-medium bg-secondary hover:bg-secondary/90 text-secondary-foreground flex items-center justify-center gap-2"
+                className="w-full h-14 text-base font-medium bg-gradient-to-r from-[#1694f2] via-[#1ed5bb] to-[#06B6D4] hover:from-[#1694f2]/90 hover:via-[#1ed5bb]/90 hover:to-[#06B6D4]/90 text-white flex items-center justify-center gap-2 shadow-lg"
               >
                 <Camera className="w-5 h-5" />
                 Explorar Esculturas
