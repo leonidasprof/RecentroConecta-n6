@@ -11,6 +11,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { X, Download, QrCode, User, MapPin, Upload, FileDown, Users, Camera } from "lucide-react"
 import Image from "next/image"
+import { QRCodeSVG } from "qrcode.react"
+import jsPDF from "jspdf"
+import { getSupabase } from "@/lib/supabase"
 
 interface TicketModalProps {
   isOpen: boolean
@@ -33,6 +36,7 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
     visitorCount: "",
     uploadedFile: null as File | null,
   })
+  const [generatedTicketId, setGeneratedTicketId] = useState<string>("")
 
   if (!isOpen) return null
 
@@ -46,8 +50,37 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
     setStep(2)
   }
 
-  const handleNext = () => {
-    if (step < 3) setStep(step + 1)
+  const handleNext = async () => {
+    if (step < 3) {
+      if (step === 2) {
+        const supabase = getSupabase()
+        const ticketId = `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        setGeneratedTicketId(ticketId)
+
+        const ticketPayload = {
+          ticket_number: ticketId,
+          ticket_type: ticketType === "individual" ? "individual" : "scheduled",
+          visitor_name: ticketType === "individual" ? ticketData.name : groupData.partnerName,
+          visitor_type: ticketType === "individual" ? ticketData.visitorType : groupData.partnerType,
+          visitor_email: null,
+          visitor_phone: null,
+          visitor_origin: ticketData.origin || null,
+          visit_date: new Date().toISOString().split("T")[0],
+          number_of_people: ticketType === "individual" ? 1 : Number.parseInt(groupData.visitorCount),
+          qr_code: ticketId, // Store ticket ID as QR code value
+          is_validated: false,
+        }
+
+        const { error } = await supabase.from("tickets").insert(ticketPayload)
+
+        if (error) {
+          console.error("[v0] Error saving ticket:", error)
+          alert("Erro ao gerar ingresso. Tente novamente.")
+          return
+        }
+      }
+      setStep(step + 1)
+    }
   }
 
   const handleGenerateAnother = () => {
@@ -66,11 +99,69 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
       visitorCount: "",
       uploadedFile: null,
     })
+    setGeneratedTicketId("")
   }
 
   const generateTicketPDF = () => {
-    console.log("[v0] Generating PDF ticket with data:", ticketData)
-    alert("PDF do ingresso baixado com sucesso!")
+    const doc = new jsPDF()
+
+    doc.setFontSize(24)
+    doc.setFont("helvetica", "bold")
+    doc.text("PARQUE DAS ESCULTURAS", 105, 30, { align: "center" })
+
+    doc.setFontSize(16)
+    doc.setFont("helvetica", "normal")
+    doc.text("Ingresso Gratuito", 105, 40, { align: "center" })
+
+    const qrCodeElement = document.getElementById("ticket-qr-code")
+    if (qrCodeElement) {
+      const svgData = new XMLSerializer().serializeToString(qrCodeElement)
+      const canvas = document.createElement("canvas")
+      const ctx = canvas.getContext("2d")
+      const img = new globalThis.Image()
+
+      img.onload = () => {
+        canvas.width = img.width
+        canvas.height = img.height
+        ctx?.drawImage(img, 0, 0)
+        const pngData = canvas.toDataURL("image/png")
+        doc.addImage(pngData, "PNG", 70, 50, 70, 70)
+
+        doc.setFontSize(12)
+        doc.setFont("helvetica", "bold")
+
+        if (ticketType === "individual") {
+          doc.text(`Nome: ${ticketData.name}`, 20, 135)
+          doc.text(`Idade: ${ticketData.age} anos`, 20, 145)
+          doc.text(`Tipo: ${ticketData.visitorType === "local" ? "Morador Local" : "Turista"}`, 20, 155)
+          if (ticketData.origin) doc.text(`Origem: ${ticketData.origin}`, 20, 165)
+          if (ticketData.neighborhood) doc.text(`Bairro: ${ticketData.neighborhood}`, 20, 165)
+        } else {
+          doc.text(`Parceiro: ${groupData.partnerName}`, 20, 135)
+          doc.text(`Tipo: ${groupData.partnerType}`, 20, 145)
+          doc.text(`Visitantes: ${groupData.visitorCount}`, 20, 155)
+        }
+
+        doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 20, 175)
+        doc.text(`ID: ${generatedTicketId}`, 20, 185)
+
+        doc.setFontSize(10)
+        doc.setFont("helvetica", "normal")
+        doc.text("Válido por 24 horas", 20, 195)
+
+        doc.setFontSize(11)
+        doc.setFont("helvetica", "bold")
+        doc.text("Explore as esculturas no aplicativo!", 20, 210)
+        doc.setFont("helvetica", "normal")
+        doc.text("Conecte-se às obras apontando sua câmera para o QR code em cada escultura.", 20, 220, {
+          maxWidth: 170,
+        })
+
+        doc.save(`ingresso-${generatedTicketId}.pdf`)
+      }
+
+      img.src = `data:image/svg+xml;base64,${btoa(svgData)}`
+    }
   }
 
   const downloadListTemplate = () => {
@@ -92,10 +183,10 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
       onClick={handleClose}
     >
       <Card
-        className="w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in border-4 border-dashed border-blue-400 rounded-2xl p-0"
+        className="w-full max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in rounded-2xl p-0"
         onClick={(e) => e.stopPropagation()}
       >
-        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-40 sm:h-44 m-0 border-b-4 border-dashed border-blue-400">
+        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-40 sm:h-44 m-0">
           <div className="absolute inset-0">
             <Image src="/images/marco-zero.jpeg" alt="Marco Zero" fill className="object-cover opacity-70" />
             <div className="absolute inset-0 bg-gradient-to-b from-blue-900/90 via-blue-800/80 to-cyan-700/90" />
@@ -370,7 +461,7 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
 
           {step === 3 && (
             <div className="space-y-6">
-              <div className="border-4 border-dashed border-blue-400 p-6 rounded-2xl bg-gradient-to-br from-blue-50 via-white to-cyan-50 animate-fade-in">
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 via-white to-cyan-50 animate-fade-in">
                 <div className="text-center space-y-4">
                   <div className="flex justify-center items-center gap-6 mb-4">
                     <Image
@@ -392,8 +483,8 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
                   <h3 className="text-2xl font-bold text-slate-800">PARQUE DAS ESCULTURAS</h3>
                   <p className="text-lg text-slate-600">Ingresso Gratuito</p>
 
-                  <div className="w-32 h-32 mx-auto bg-white border-4 border-blue-500 rounded-2xl flex items-center justify-center shadow-lg animate-pulse-color">
-                    <QrCode className="w-20 h-20 text-blue-600" />
+                  <div className="w-32 h-32 mx-auto bg-white border-4 border-blue-500 rounded-2xl flex items-center justify-center shadow-lg p-2">
+                    <QRCodeSVG id="ticket-qr-code" value={generatedTicketId} size={112} level="H" />
                   </div>
 
                   <div className="bg-white/80 p-4 rounded-xl text-left space-y-2 shadow-inner">
@@ -435,6 +526,9 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
                     <p className="text-base">
                       <strong>Data:</strong> {new Date().toLocaleDateString("pt-BR")}
                     </p>
+                    <p className="text-xs text-slate-500">
+                      <strong>ID:</strong> {generatedTicketId}
+                    </p>
                     <p className="text-sm text-slate-500 mt-3">Válido por 24 horas</p>
                   </div>
 
@@ -442,7 +536,7 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
                     <div className="flex items-start gap-3">
                       <Camera className="w-7 h-7 text-cyan-600 flex-shrink-0 mt-1" />
                       <div className="text-left">
-                        <p className="text-base font-bold text-slate-800 mb-2">💡 Explore Mais!</p>
+                        <p className="text-base font-bold text-slate-800 mb-2">Explore Mais!</p>
                         <p className="text-base text-slate-700 leading-relaxed">
                           Explore as esculturas no aplicativo. Conecte-se às obras apontando sua câmera para o QR code
                           em cada escultura.
@@ -456,7 +550,7 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
               <div className="space-y-3">
                 <Button
                   onClick={generateTicketPDF}
-                  className="w-full h-14 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-lg font-semibold modern-button"
+                  className="w-full h-14 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-lg font-semibold"
                 >
                   <Download className="w-5 h-5 mr-2" />
                   Baixar Ingresso PDF

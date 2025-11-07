@@ -22,6 +22,7 @@ import {
 import TicketModal from "@/components/ticket-modal"
 import LoginModal from "@/components/login-modal"
 import VisitBookingModal from "@/components/visit-booking-modal"
+import SculptureScanner from "@/components/sculpture-scanner"
 import { getSupabase } from "@/lib/supabase"
 
 export default function RecentroConecta() {
@@ -34,6 +35,9 @@ export default function RecentroConecta() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [language, setLanguage] = useState("pt")
   const [parkOpen, setParkOpen] = useState(true)
+  const [showSculptureScanner, setShowSculptureScanner] = useState(false)
+  const [scannedSculpture, setScannedSculpture] = useState<any>(null)
+  const [uploadedPhoto, setUploadedPhoto] = useState<File | null>(null)
 
   const bannerImages = [
     "/images/banner.jpeg",
@@ -71,7 +75,6 @@ export default function RecentroConecta() {
       if (data && !error) {
         setParkOpen(data.is_open)
       } else {
-        // Fallback to localStorage
         const savedStatus = localStorage.getItem("parkStatus")
         if (savedStatus !== null) {
           setParkOpen(savedStatus === "true")
@@ -81,10 +84,32 @@ export default function RecentroConecta() {
 
     loadParkStatus()
 
-    // Poll for updates every 30 seconds
     const interval = setInterval(loadParkStatus, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  const handleSculptureScan = async (sculptureCode: string) => {
+    const supabase = getSupabase()
+    const { data, error } = await supabase.from("sculptures").select("*").eq("code", sculptureCode).single()
+
+    if (data && !error) {
+      setScannedSculpture(data)
+      setShowSculptureScanner(false)
+      setCurrentScreen("sculpture")
+    } else {
+      console.error("[v0] Sculpture not found:", sculptureCode)
+      alert("Escultura não encontrada. Verifique o código QR.")
+    }
+  }
+
+  const handlePhotoUpload = async (file: File) => {
+    setUploadedPhoto(file)
+    setShowSculptureScanner(false)
+
+    // TODO: Upload to Vercel Blob or Supabase Storage
+    console.log("[v0] Photo uploaded:", file.name)
+    alert("Foto salva com sucesso! Obrigado por compartilhar sua experiência.")
+  }
 
   const renderHomeScreen = () => (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
@@ -208,53 +233,56 @@ export default function RecentroConecta() {
             className={`modern-card animate-fade-in border-2 ${parkOpen ? "border-emerald-200" : "border-red-200"}`}
           >
             <CardContent className="p-4 md:p-6">
-              <div className="flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-6">
+              <div className="flex flex-col lg:flex-row items-center justify-between gap-6 lg:gap-8">
                 {/* Left side: Status with Brennand image */}
-                <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-                  <div className="flex-shrink-0">
+                <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full lg:flex-1">
+                  <div className="flex-shrink-0 w-32 h-32 relative">
                     <Image
                       src={parkOpen ? "/images/brennand-happy.png" : "/images/brennand-sad.png"}
                       alt={parkOpen ? "Brennand de braços abertos" : "Brennand triste"}
-                      width={120}
-                      height={120}
+                      fill
                       className="rounded-lg object-contain"
                     />
                   </div>
-                  <div className="text-center sm:text-left">
+                  <div className="text-center sm:text-left flex-1">
                     {parkOpen ? (
                       <>
-                        <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
+                        <div className="flex items-center justify-center sm:justify-start gap-3 mb-3">
                           <div className="w-4 h-4 bg-emerald-500 rounded-full animate-pulse-color"></div>
-                          <span className="text-2xl md:text-3xl text-emerald-600 font-bold">ABERTO</span>
+                          <span className="text-2xl md:text-3xl lg:text-4xl text-emerald-600 font-bold">ABERTO</span>
                         </div>
                         <Badge
                           variant="secondary"
-                          className="text-sm md:text-base px-3 py-1 bg-emerald-100 text-emerald-800"
+                          className="text-sm md:text-base px-4 py-1.5 bg-emerald-100 text-emerald-800"
                         >
                           Hoje: 8h às 17h
                         </Badge>
                       </>
                     ) : (
                       <>
-                        <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
+                        <div className="flex items-center justify-center sm:justify-start gap-3 mb-3">
                           <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-                          <span className="text-lg md:text-2xl text-red-600 font-bold">TEMPORARIAMENTE FECHADO</span>
+                          <span className="text-xl md:text-2xl lg:text-3xl text-red-600 font-bold">
+                            TEMPORARIAMENTE FECHADO
+                          </span>
                         </div>
-                        <p className="text-sm text-red-700">O parque está temporariamente fechado para visitação</p>
+                        <p className="text-sm md:text-base text-red-700">
+                          O parque está temporariamente fechado para visitação
+                        </p>
                       </>
                     )}
                   </div>
                 </div>
 
                 {/* Right side: Tide information */}
-                <div className="flex items-center gap-4 md:gap-6 w-full lg:w-auto justify-center lg:justify-end">
-                  <div className="text-center bg-blue-50 px-4 py-3 rounded-lg">
-                    <p className="text-xs text-slate-600 mb-1">Maré Alta</p>
-                    <p className="text-lg md:text-xl font-bold text-blue-600">14:30</p>
+                <div className="flex items-center gap-4 md:gap-6 w-full sm:w-auto justify-center lg:justify-end">
+                  <div className="text-center bg-blue-50 px-4 md:px-6 py-3 md:py-4 rounded-lg shadow-sm min-w-[120px]">
+                    <p className="text-xs md:text-sm text-slate-600 mb-1 font-medium">Maré Alta</p>
+                    <p className="text-xl md:text-2xl font-bold text-blue-600">14:30</p>
                   </div>
-                  <div className="text-center bg-blue-50 px-4 py-3 rounded-lg">
-                    <p className="text-xs text-slate-600 mb-1">Maré Baixa</p>
-                    <p className="text-lg md:text-xl font-bold text-blue-600">20:45</p>
+                  <div className="text-center bg-blue-50 px-4 md:px-6 py-3 md:py-4 rounded-lg shadow-sm min-w-[120px]">
+                    <p className="text-xs md:text-sm text-slate-600 mb-1 font-medium">Maré Baixa</p>
+                    <p className="text-xl md:text-2xl font-bold text-blue-600">20:45</p>
                   </div>
                 </div>
               </div>
@@ -340,7 +368,7 @@ export default function RecentroConecta() {
               </div>
 
               <Button
-                onClick={() => setCurrentScreen("qr")}
+                onClick={() => setShowSculptureScanner(true)}
                 className="w-full h-14 text-base font-medium bg-secondary hover:bg-secondary/90 text-secondary-foreground flex items-center justify-center gap-2"
               >
                 <Camera className="w-5 h-5" />
@@ -696,7 +724,7 @@ export default function RecentroConecta() {
             </p>
 
             <Button
-              onClick={() => setCurrentScreen("sculpture")}
+              onClick={() => setShowSculptureScanner(true)}
               className="h-16 text-lg font-medium px-6 py-4 bg-secondary hover:bg-secondary/90 text-secondary-foreground"
             >
               <Camera className="w-6 h-6 mr-3" />
@@ -718,7 +746,7 @@ export default function RecentroConecta() {
     <div className="min-h-screen bg-white">
       <header className="bg-secondary text-secondary-foreground p-4">
         <div className="max-w-4xl mx-auto flex items-center gap-3">
-          <Button variant="ghost" onClick={() => setCurrentScreen("qr")} className="hover:bg-white/20">
+          <Button variant="ghost" onClick={() => setCurrentScreen("home")} className="hover:bg-white/20">
             ← Voltar
           </Button>
           <h1 className="large-text font-bold">Informações da Escultura</h1>
@@ -727,33 +755,44 @@ export default function RecentroConecta() {
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
         <div className="relative h-64 rounded-lg overflow-hidden">
-          <Image src="/images/sculptures-1.jpeg" alt="Esculturas Marinhas" fill className="object-cover" />
+          <Image
+            src={scannedSculpture?.image_url || "/images/sculptures-1.jpeg"}
+            alt={scannedSculpture?.name || "Esculturas Marinhas"}
+            fill
+            className="object-cover"
+          />
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle className="extra-large-text">Serpentes do Mar</CardTitle>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-mono bg-purple-200 text-purple-800 px-3 py-1 rounded">
+                {scannedSculpture?.code || "ESC001"}
+              </span>
+            </div>
+            <CardTitle className="extra-large-text">{scannedSculpture?.name || "Serpentes do Mar"}</CardTitle>
             <p className="large-text text-muted-foreground">Por Francisco Brennand</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="large-text leading-relaxed">
-              Estas magníficas esculturas em bronze representam serpentes marinhas, simbolizando a conexão entre a terra
-              e o mar. Criadas pelo renomado artista pernambucano Francisco Brennand, elas fazem parte do conjunto
-              escultórico que transforma o quebra-mar em uma galeria de arte a céu aberto.
+              {scannedSculpture?.description ||
+                "Estas magníficas esculturas em bronze representam serpentes marinhas, simbolizando a conexão entre a terra e o mar. Criadas pelo renomado artista pernambucano Francisco Brennand, elas fazem parte do conjunto escultórico que transforma o quebra-mar em uma galeria de arte a céu aberto."}
             </p>
 
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="large-text font-semibold mb-2">Curiosidades</h3>
-              <ul className="space-y-2">
-                <li className="large-text">• Inauguradas em 2000</li>
-                <li className="large-text">• Feitas em bronze patinado</li>
-                <li className="large-text">• Resistem à maresia</li>
-                <li className="large-text">• Cada peça pesa cerca de 2 toneladas</li>
-              </ul>
+              <p className="large-text">
+                {scannedSculpture?.curiosity ||
+                  "Inauguradas em 2000, feitas em bronze patinado, resistem à maresia. Cada peça pesa cerca de 2 toneladas."}
+              </p>
             </div>
 
-            <Button className="h-16 text-lg font-medium px-6 py-4 w-full bg-primary hover:bg-primary/90 text-white">
-              🔊 Ouvir Áudio Explicativo
+            <Button
+              onClick={() => setShowSculptureScanner(true)}
+              className="w-full h-16 text-lg font-medium px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+            >
+              <Camera className="w-6 h-6 mr-2" />
+              Compartilhar Foto desta Escultura
             </Button>
           </CardContent>
         </Card>
@@ -837,6 +876,13 @@ export default function RecentroConecta() {
       <TicketModal isOpen={showTicketModal} onClose={() => setShowTicketModal(false)} />
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
       <VisitBookingModal isOpen={showBookingModal} onClose={() => setShowBookingModal(false)} />
+      {showSculptureScanner && (
+        <SculptureScanner
+          onScan={handleSculptureScan}
+          onImageUpload={handlePhotoUpload}
+          onClose={() => setShowSculptureScanner(false)}
+        />
+      )}
     </>
   )
 }

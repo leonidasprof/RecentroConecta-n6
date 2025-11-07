@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -50,10 +50,12 @@ import {
   AlertCircle,
   Plus,
   Edit2,
+  Upload,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { getSupabase } from "@/lib/supabase"
+import QrScanner from "@/components/qr-scanner" // Imported QrScanner
 
 export default function AdminDashboard() {
   const [newEmployee, setNewEmployee] = useState({ name: "", email: "", role: "" })
@@ -76,8 +78,13 @@ export default function AdminDashboard() {
 
   const [scannerActive, setScannerActive] = useState(false)
   const [lastScannedTicket, setLastScannedTicket] = useState<any>(null)
+  const videoRef = useRef<HTMLVideoElement>(null) // Added for potential video stream in future
 
   const [parkOpen, setParkOpen] = useState(true)
+
+  // Added states for QR Scanner integration
+  const [showQrScanner, setShowQrScanner] = useState(false)
+  const [scanResult, setScanResult] = useState<any>(null)
 
   useEffect(() => {
     const loadParkStatus = async () => {
@@ -121,6 +128,8 @@ export default function AdminDashboard() {
     description: "",
     curiosity: "",
   })
+  const [sculptureImage, setSculptureImage] = useState<File | null>(null) // Added for image upload
+
   const [sculptures, setSculptures] = useState([
     {
       id: 1,
@@ -278,18 +287,51 @@ export default function AdminDashboard() {
     alert(`Exportando dados ${periodText} em formato ${formatText}...\n\nDownload iniciado!`)
   }
 
+  // Function to load tickets (needed for refresh after validation)
+  const loadTickets = async () => {
+    const supabase = getSupabase()
+    const { data, error } = await supabase.from("tickets").select("*").order("created_at", { ascending: false })
+
+    if (data && !error) {
+      // Assuming you have a state to store tickets, e.g., setTickets(data)
+      // For now, we'll just log it or handle it as needed.
+      console.log("Tickets loaded:", data)
+    } else {
+      console.error("Error loading tickets:", error)
+    }
+  }
+
   const handleStartScanner = () => {
-    setScannerActive(true)
-    // Simular leitura após 2 segundos
-    setTimeout(() => {
-      setLastScannedTicket({
-        type: "individual",
-        name: "João Silva",
-        date: new Date().toLocaleDateString("pt-BR"),
-        valid: true,
+    setShowQrScanner(true)
+    setScanResult(null)
+  }
+
+  // QR scan handler
+  const handleQrScan = async (qrCode: string) => {
+    try {
+      const response = await fetch("/api/tickets/validate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ qrCode }),
       })
-      setScannerActive(false)
-    }, 2000)
+
+      const result = await response.json()
+      setScanResult(result)
+      setShowQrScanner(false)
+
+      if (result.valid) {
+        await loadTickets()
+      }
+    } catch (error) {
+      console.error("[v0] Error validating ticket:", error)
+      setScanResult({
+        valid: false,
+        error: "Erro ao validar ingresso",
+      })
+      setShowQrScanner(false)
+    }
   }
 
   useEffect(() => {
@@ -336,6 +378,13 @@ export default function AdminDashboard() {
 
     const newCode = `ESC${String(nextNumber).padStart(3, "0")}`
 
+    // TODO: Upload image to storage if sculptureImage exists
+    const imageUrl = null
+    if (sculptureImage) {
+      // In a real implementation, upload to Supabase Storage or Vercel Blob
+      console.log("[v0] Would upload image:", sculptureImage.name)
+    }
+
     const { data, error } = await supabase
       .from("sculptures")
       .insert({
@@ -343,6 +392,7 @@ export default function AdminDashboard() {
         name: newSculpture.name,
         description: newSculpture.description,
         curiosity: newSculpture.curiosity,
+        image_url: imageUrl,
       })
       .select()
       .single()
@@ -366,6 +416,7 @@ export default function AdminDashboard() {
       ])
       alert(`Escultura cadastrada!\nCódigo: ${newCode}\nNome: ${newSculpture.name}`)
       setNewSculpture({ name: "", description: "", curiosity: "" })
+      setSculptureImage(null) // Reset image state
     }
   }
 
@@ -1198,6 +1249,26 @@ export default function AdminDashboard() {
                     />
                   </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="sculpture-image">Imagem da Escultura</Label>
+                    <div className="border-2 border-dashed border-purple-300 rounded-xl p-6 bg-purple-50/50">
+                      <Input
+                        id="sculpture-image"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setSculptureImage(e.target.files?.[0] || null)}
+                        className="hidden"
+                      />
+                      <Label
+                        htmlFor="sculpture-image"
+                        className="flex items-center justify-center h-12 px-4 border-2 border-purple-500 bg-white text-purple-700 rounded-lg cursor-pointer hover:bg-purple-50 transition-colors font-semibold"
+                      >
+                        <Upload className="w-5 h-5 mr-2" />
+                        {sculptureImage ? sculptureImage.name : "Upload da Imagem"}
+                      </Label>
+                    </div>
+                  </div>
+
                   <Button type="submit" className="w-full h-12 bg-[#A855F7] hover:bg-[#A855F7]/90 text-white text-lg">
                     <Plus className="w-5 h-5 mr-2" />
                     Cadastrar Escultura
@@ -1253,7 +1324,7 @@ export default function AdminDashboard() {
                 <CardDescription>Escaneie o QR code dos ingressos para validar a entrada</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {!scannerActive && !lastScannedTicket && (
+                {!scannerActive && !lastScannedTicket && !showQrScanner && (
                   <div className="text-center py-12">
                     <div className="w-32 h-32 mx-auto mb-6 bg-orange-100 rounded-full flex items-center justify-center">
                       <Camera className="w-16 h-16 text-[#F97316]" />
@@ -1322,6 +1393,9 @@ export default function AdminDashboard() {
                         <p className="text-base">
                           <strong>Data:</strong> {lastScannedTicket.date}
                         </p>
+                        {lastScannedTicket.alreadyUsed && (
+                          <p className="text-yellow-800 font-semibold">Este ingresso já foi utilizado.</p>
+                        )}
                       </div>
                     </div>
 
@@ -1342,6 +1416,46 @@ export default function AdminDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {showQrScanner && <QrScanner onScan={handleQrScan} onClose={() => setShowQrScanner(false)} />}
+
+      {scanResult && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className={scanResult.valid ? "text-emerald-600" : "text-red-600"}>
+                {scanResult.valid ? "✓ Ingresso Válido" : "✗ Ingresso Inválido"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-lg">{scanResult.message || scanResult.error}</p>
+
+              {scanResult.ticket && (
+                <div className="bg-slate-50 p-4 rounded-lg space-y-2 text-sm">
+                  <p>
+                    <strong>Nome:</strong> {scanResult.ticket.visitor_name}
+                  </p>
+                  <p>
+                    <strong>Tipo:</strong> {scanResult.ticket.ticket_type}
+                  </p>
+                  <p>
+                    <strong>Data:</strong> {new Date(scanResult.ticket.visit_date).toLocaleDateString("pt-BR")}
+                  </p>
+                  {scanResult.validated_at && (
+                    <p className="text-red-600">
+                      <strong>Validado em:</strong> {new Date(scanResult.validated_at).toLocaleString("pt-BR")}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <Button onClick={() => setScanResult(null)} className="w-full">
+                Fechar
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
