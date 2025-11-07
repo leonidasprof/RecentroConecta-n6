@@ -2,267 +2,463 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { X, Calendar, Users, Clock, Accessibility } from "lucide-react"
+import { X, Download, User, Mail, Phone, Calendar, Plus, Trash2, Users } from "lucide-react"
+import Image from "next/image"
+import { QRCodeSVG } from "qrcode.react"
+import jsPDF from "jspdf"
+import { getSupabase } from "@/lib/supabase"
 
 interface VisitBookingModalProps {
   isOpen: boolean
   onClose: () => void
 }
 
+interface Visitor {
+  id: string
+  name: string
+  age: string
+  cpf_rg: string
+  contact: string
+}
+
 export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModalProps) {
-  const [formData, setFormData] = useState({
-    organization: "",
-    contact: "",
+  const [step, setStep] = useState(1)
+  const [responsibleData, setResponsibleData] = useState({
+    name: "",
     email: "",
     phone: "",
-    date: "",
-    time: "",
-    visitors: "",
-    visitType: "guided",
-    accessibility: [] as string[],
-    eventType: "",
-    notes: "",
+    visitDate: "",
   })
+  const [visitors, setVisitors] = useState<Visitor[]>([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
+  const [generatedBookingId, setGeneratedBookingId] = useState<string>("")
 
   if (!isOpen) return null
 
-  const handleSubmit = () => {
-    alert("Solicitação de agendamento enviada com sucesso! Entraremos em contato em breve.")
+  const handleClose = () => {
     onClose()
   }
 
-  const toggleAccessibility = (option: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      accessibility: prev.accessibility.includes(option)
-        ? prev.accessibility.filter((item) => item !== option)
-        : [...prev.accessibility, option],
-    }))
+  const addVisitor = () => {
+    const newVisitor: Visitor = {
+      id: Date.now().toString(),
+      name: "",
+      age: "",
+      cpf_rg: "",
+      contact: "",
+    }
+    setVisitors([...visitors, newVisitor])
+  }
+
+  const removeVisitor = (id: string) => {
+    if (visitors.length > 1) {
+      setVisitors(visitors.filter((v) => v.id !== id))
+    }
+  }
+
+  const updateVisitor = (id: string, field: keyof Visitor, value: string) => {
+    setVisitors(visitors.map((v) => (v.id === id ? { ...v, [field]: value } : v)))
+  }
+
+  const handleSubmitBooking = async () => {
+    const supabase = getSupabase()
+    const bookingId = `BKG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    setGeneratedBookingId(bookingId)
+
+    const bookingPayload = {
+      booking_number: bookingId,
+      responsible_name: responsibleData.name,
+      responsible_email: responsibleData.email,
+      responsible_phone: responsibleData.phone,
+      visit_date: responsibleData.visitDate,
+      number_of_people: visitors.length,
+      qr_code: bookingId,
+      is_validated: false,
+      visitors: visitors,
+    }
+
+    const { error } = await supabase.from("bookings").insert(bookingPayload)
+
+    if (error) {
+      console.error("[v0] Error saving booking:", error)
+      alert("Erro ao criar agendamento. Tente novamente.")
+      return
+    }
+
+    // TODO: Send email with booking confirmation and QR code
+    console.log("[v0] Booking created:", bookingId)
+
+    setStep(2)
+  }
+
+  const generateBookingPDF = () => {
+    const doc = new jsPDF()
+
+    doc.setFontSize(24)
+    doc.setFont("helvetica", "bold")
+    doc.text("PARQUE DAS ESCULTURAS", 105, 30, { align: "center" })
+
+    doc.setFontSize(16)
+    doc.setFont("helvetica", "normal")
+    doc.text("Agendamento de Visita", 105, 40, { align: "center" })
+
+    const qrCodeElement = document.getElementById("booking-qr-code")
+    if (qrCodeElement) {
+      const svgData = new XMLSerializer().serializeToString(qrCodeElement)
+      const canvas = document.createElement("canvas")
+      const ctx = canvas.getContext("2d")
+      const img = new globalThis.Image()
+
+      img.onload = () => {
+        canvas.width = img.width
+        canvas.height = img.height
+        ctx?.drawImage(img, 0, 0)
+        const pngData = canvas.toDataURL("image/png")
+        doc.addImage(pngData, "PNG", 70, 50, 70, 70)
+
+        doc.setFontSize(12)
+        doc.setFont("helvetica", "bold")
+
+        doc.text(`Responsável: ${responsibleData.name}`, 20, 135)
+        doc.text(`E-mail: ${responsibleData.email}`, 20, 145)
+        doc.text(`Telefone: ${responsibleData.phone}`, 20, 155)
+        doc.text(`Data da Visita: ${new Date(responsibleData.visitDate).toLocaleDateString("pt-BR")}`, 20, 165)
+        doc.text(`Total de Visitantes: ${visitors.length}`, 20, 175)
+
+        doc.text("Lista de Visitantes:", 20, 190)
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(10)
+
+        let yPosition = 200
+        visitors.forEach((visitor, index) => {
+          if (yPosition > 270) {
+            doc.addPage()
+            yPosition = 20
+          }
+          doc.text(`${index + 1}. ${visitor.name} - ${visitor.age} anos - ${visitor.cpf_rg}`, 25, yPosition)
+          yPosition += 10
+        })
+
+        doc.text(`ID: ${generatedBookingId}`, 20, yPosition + 10)
+
+        doc.save(`agendamento-${generatedBookingId}.pdf`)
+      }
+
+      img.src = `data:image/svg+xml;base64,${btoa(svgData)}`
+    }
+  }
+
+  const handleGenerateAnother = () => {
+    setStep(1)
+    setResponsibleData({
+      name: "",
+      email: "",
+      phone: "",
+      visitDate: "",
+    })
+    setVisitors([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
+    setGeneratedBookingId("")
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <Card className="w-full max-w-2xl my-8">
-        <CardHeader className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white relative">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={handleClose}
+    >
+      <Card
+        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in rounded-2xl p-0"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-40 sm:h-44 m-0">
+          <div className="absolute inset-0">
+            <Image src="/images/marco-zero.jpeg" alt="Marco Zero" fill className="object-cover opacity-70" />
+            <div className="absolute inset-0 bg-gradient-to-b from-emerald-900/90 via-teal-800/80 to-cyan-700/90" />
+          </div>
+
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClose}
-            className="absolute right-2 top-2 text-white hover:bg-white/20"
+            onClick={handleClose}
+            className="absolute right-4 top-4 text-white hover:bg-white/20 rounded-full w-10 h-10 p-0 z-50 transition-all hover:scale-110"
           >
-            <X className="w-4 h-4" />
+            <X className="w-6 h-6" />
           </Button>
-          <CardTitle className="text-2xl flex items-center gap-2">
-            <Calendar className="w-6 h-6" />
-            Agendar Visita ou Evento
-          </CardTitle>
-          <p className="text-white/90 text-sm mt-2">Para escolas, empresas de turismo, hotéis e grupos organizados</p>
+
+          <div className="relative z-10 flex flex-col items-center justify-center h-full text-white gap-1 md:gap-2 px-4 py-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-7 h-7 md:w-9 md:h-9 opacity-50" />
+              <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold drop-shadow-lg">Agendar Visita</h2>
+            </div>
+            <p className="text-white/95 text-sm sm:text-base md:text-lg text-center max-w-lg leading-snug font-medium px-2">
+              Organize sua visita em grupo ao Parque de Esculturas
+            </p>
+          </div>
         </CardHeader>
 
-        <CardContent className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="organization" className="text-base font-medium">
-                Organização/Instituição *
-              </Label>
-              <Input
-                id="organization"
-                value={formData.organization}
-                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                className="mt-1"
-                placeholder="Nome da escola, empresa, hotel..."
-              />
-            </div>
+        <CardContent className="p-6">
+          {step === 1 && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  Dados do Responsável
+                </h3>
 
-            <div>
-              <Label htmlFor="contact" className="text-base font-medium">
-                Nome do Responsável *
-              </Label>
-              <Input
-                id="contact"
-                value={formData.contact}
-                onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                className="mt-1"
-                placeholder="Seu nome completo"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="email" className="text-base font-medium">
-                E-mail *
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="mt-1"
-                placeholder="seu@email.com"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="phone" className="text-base font-medium">
-                Telefone *
-              </Label>
-              <Input
-                id="phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="mt-1"
-                placeholder="(81) 99999-9999"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="date" className="text-base font-medium">
-                Data Desejada *
-              </Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="time" className="text-base font-medium">
-                Horário *
-              </Label>
-              <Input
-                id="time"
-                type="time"
-                value={formData.time}
-                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="visitors" className="text-base font-medium">
-                Nº de Visitantes *
-              </Label>
-              <Input
-                id="visitors"
-                type="number"
-                value={formData.visitors}
-                onChange={(e) => setFormData({ ...formData, visitors: e.target.value })}
-                className="mt-1"
-                placeholder="Ex: 30"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-base font-medium mb-3 block">Tipo de Visita *</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Button
-                type="button"
-                variant={formData.visitType === "guided" ? "default" : "outline"}
-                onClick={() => setFormData({ ...formData, visitType: "guided" })}
-                className="h-auto py-4 flex flex-col items-start"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Users className="w-5 h-5" />
-                  <span className="font-semibold">Visita Guiada</span>
+                <div>
+                  <Label htmlFor="resp-name" className="text-base font-semibold text-slate-700">
+                    Nome Completo
+                  </Label>
+                  <Input
+                    id="resp-name"
+                    value={responsibleData.name}
+                    onChange={(e) => setResponsibleData({ ...responsibleData, name: e.target.value })}
+                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                    placeholder="Nome do responsável"
+                  />
                 </div>
-                <span className="text-xs text-left">Com acompanhamento de guia especializado</span>
-              </Button>
+
+                <div>
+                  <Label
+                    htmlFor="resp-email"
+                    className="text-base font-semibold text-slate-700 flex items-center gap-2"
+                  >
+                    <Mail className="w-4 h-4" />
+                    E-mail
+                  </Label>
+                  <Input
+                    id="resp-email"
+                    type="email"
+                    value={responsibleData.email}
+                    onChange={(e) => setResponsibleData({ ...responsibleData, email: e.target.value })}
+                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                    placeholder="seu@email.com"
+                  />
+                </div>
+
+                <div>
+                  <Label
+                    htmlFor="resp-phone"
+                    className="text-base font-semibold text-slate-700 flex items-center gap-2"
+                  >
+                    <Phone className="w-4 h-4" />
+                    Telefone
+                  </Label>
+                  <Input
+                    id="resp-phone"
+                    value={responsibleData.phone}
+                    onChange={(e) => setResponsibleData({ ...responsibleData, phone: e.target.value })}
+                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                    placeholder="(81) 99999-9999"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="visit-date" className="text-base font-semibold text-slate-700">
+                    Data da Visita
+                  </Label>
+                  <Input
+                    id="visit-date"
+                    type="date"
+                    value={responsibleData.visitDate}
+                    onChange={(e) => setResponsibleData({ ...responsibleData, visitDate: e.target.value })}
+                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="border-t-2 border-slate-200 pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Lista de Visitantes ({visitors.length})
+                  </h3>
+                  <Button type="button" onClick={addVisitor} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar
+                  </Button>
+                </div>
+
+                <div className="max-h-96 overflow-y-auto space-y-4 pr-2">
+                  {visitors.map((visitor, index) => (
+                    <div key={visitor.id} className="border-2 border-slate-200 rounded-lg p-4 bg-slate-50">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="font-semibold text-slate-700">Visitante {index + 1}</span>
+                        {visitors.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeVisitor(visitor.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-sm font-medium text-slate-600">Nome</Label>
+                          <Input
+                            value={visitor.name}
+                            onChange={(e) => updateVisitor(visitor.id, "name", e.target.value)}
+                            className="mt-1 h-10 text-sm"
+                            placeholder="Nome completo"
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-medium text-slate-600">Idade</Label>
+                          <Input
+                            type="number"
+                            value={visitor.age}
+                            onChange={(e) => updateVisitor(visitor.id, "age", e.target.value)}
+                            className="mt-1 h-10 text-sm"
+                            placeholder="Idade"
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-medium text-slate-600">CPF ou RG</Label>
+                          <Input
+                            value={visitor.cpf_rg}
+                            onChange={(e) => updateVisitor(visitor.id, "cpf_rg", e.target.value)}
+                            className="mt-1 h-10 text-sm"
+                            placeholder="000.000.000-00"
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-medium text-slate-600">Contato</Label>
+                          <Input
+                            value={visitor.contact}
+                            onChange={(e) => updateVisitor(visitor.id, "contact", e.target.value)}
+                            className="mt-1 h-10 text-sm"
+                            placeholder="Telefone ou e-mail"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Importante:</strong> Após o agendamento, você receberá um e-mail com o QR code que liberará a
+                  entrada de todos os visitantes cadastrados na data selecionada.
+                </p>
+              </div>
 
               <Button
-                type="button"
-                variant={formData.visitType === "self" ? "default" : "outline"}
-                onClick={() => setFormData({ ...formData, visitType: "self" })}
-                className="h-auto py-4 flex flex-col items-start"
+                onClick={handleSubmitBooking}
+                disabled={
+                  !responsibleData.name ||
+                  !responsibleData.email ||
+                  !responsibleData.phone ||
+                  !responsibleData.visitDate ||
+                  visitors.some((v) => !v.name || !v.age || !v.cpf_rg)
+                }
+                className="w-full h-14 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-lg font-semibold disabled:opacity-50"
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className="w-5 h-5" />
-                  <span className="font-semibold">Visita Livre</span>
-                </div>
-                <span className="text-xs text-left">Exploração independente do parque</span>
+                Confirmar Agendamento
               </Button>
             </div>
-          </div>
+          )}
 
-          <div>
-            <Label className="text-base font-medium mb-3 flex items-center gap-2">
-              <Accessibility className="w-5 h-5" />
-              Recursos de Acessibilidade
-            </Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {[
-                { id: "libras", label: "Tradutor de Libras" },
-                { id: "wheelchair", label: "Cadeira de Rodas" },
-                { id: "audio", label: "Audiodescrição" },
-                { id: "braille", label: "Material em Braille" },
-              ].map((option) => (
+          {step === 2 && (
+            <div className="space-y-6">
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 animate-fade-in">
+                <div className="text-center space-y-4">
+                  <div className="flex justify-center items-center gap-6 mb-4">
+                    <Image
+                      src="/images/recentro-logo.png"
+                      alt="Recentro"
+                      width={60}
+                      height={60}
+                      className="rounded-lg"
+                    />
+                    <Image
+                      src="/images/prefeitura-recife-logo.png"
+                      alt="Prefeitura do Recife"
+                      width={60}
+                      height={60}
+                      className="rounded-lg"
+                    />
+                  </div>
+
+                  <h3 className="text-2xl font-bold text-slate-800">AGENDAMENTO CONFIRMADO</h3>
+                  <p className="text-lg text-emerald-600 font-semibold">Parque de Esculturas Francisco Brennand</p>
+
+                  <div className="w-32 h-32 mx-auto bg-white border-4 border-emerald-500 rounded-2xl flex items-center justify-center shadow-lg p-2">
+                    <QRCodeSVG id="booking-qr-code" value={generatedBookingId} size={112} level="H" />
+                  </div>
+
+                  <div className="bg-white/80 p-4 rounded-xl text-left space-y-2 shadow-inner">
+                    <p className="text-base">
+                      <strong>Responsável:</strong> {responsibleData.name}
+                    </p>
+                    <p className="text-base">
+                      <strong>E-mail:</strong> {responsibleData.email}
+                    </p>
+                    <p className="text-base">
+                      <strong>Telefone:</strong> {responsibleData.phone}
+                    </p>
+                    <p className="text-base">
+                      <strong>Data da Visita:</strong> {new Date(responsibleData.visitDate).toLocaleDateString("pt-BR")}
+                    </p>
+                    <p className="text-base">
+                      <strong>Total de Visitantes:</strong> {visitors.length}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-3">
+                      <strong>ID:</strong> {generatedBookingId}
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-5 rounded-xl border-2 border-emerald-200 mt-4">
+                    <div className="flex items-start gap-3">
+                      <Mail className="w-7 h-7 text-emerald-600 flex-shrink-0 mt-1" />
+                      <div className="text-left">
+                        <p className="text-base font-bold text-slate-800 mb-2">E-mail Enviado!</p>
+                        <p className="text-base text-slate-700 leading-relaxed">
+                          Um e-mail de confirmação com o QR code foi enviado para {responsibleData.email}. Apresente o
+                          QR code na entrada do parque na data agendada.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
                 <Button
-                  key={option.id}
-                  type="button"
-                  variant={formData.accessibility.includes(option.id) ? "default" : "outline"}
-                  onClick={() => toggleAccessibility(option.id)}
-                  className="justify-start"
+                  onClick={generateBookingPDF}
+                  className="w-full h-14 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-lg font-semibold"
                 >
-                  {option.label}
+                  <Download className="w-5 h-5 mr-2" />
+                  Baixar Agendamento PDF
                 </Button>
-              ))}
+
+                <Button
+                  onClick={handleGenerateAnother}
+                  variant="outline"
+                  className="w-full h-12 border-2 border-emerald-500 text-emerald-600 hover:bg-emerald-50 text-base font-semibold bg-transparent"
+                >
+                  Fazer Novo Agendamento
+                </Button>
+
+                <Button
+                  onClick={onClose}
+                  variant="ghost"
+                  className="w-full h-12 text-slate-500 hover:text-slate-700 text-base"
+                >
+                  Fechar
+                </Button>
+              </div>
             </div>
-          </div>
-
-          <div>
-            <Label htmlFor="eventType" className="text-base font-medium">
-              Tipo de Evento (opcional)
-            </Label>
-            <Input
-              id="eventType"
-              value={formData.eventType}
-              onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
-              className="mt-1"
-              placeholder="Ex: Workshop, Sessão de fotos, Evento educativo..."
-            />
-            <p className="text-xs text-muted-foreground mt-1">Deixe em branco se for apenas uma visita regular</p>
-          </div>
-
-          <div>
-            <Label htmlFor="notes" className="text-base font-medium">
-              Observações Adicionais
-            </Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="mt-1"
-              rows={4}
-              placeholder="Informações adicionais sobre sua visita ou necessidades especiais..."
-            />
-          </div>
-
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-semibold text-blue-900 mb-2">📋 Informações Importantes</h4>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Agendamentos devem ser feitos com pelo menos 7 dias de antecedência</li>
-              <li>• Grupos acima de 50 pessoas podem precisar ser divididos</li>
-              <li>• Confirmaremos a disponibilidade por e-mail em até 48 horas</li>
-              <li>• Eventos especiais estão sujeitos a aprovação e taxas adicionais</li>
-            </ul>
-          </div>
-
-          <Button
-            onClick={handleSubmit}
-            className="w-full h-12 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white text-lg"
-          >
-            Enviar Solicitação de Agendamento
-          </Button>
+          )}
         </CardContent>
       </Card>
     </div>

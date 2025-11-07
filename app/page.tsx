@@ -18,12 +18,14 @@ import {
   Youtube,
   Languages,
   Palette,
+  Info,
 } from "lucide-react"
 import TicketModal from "@/components/ticket-modal"
 import LoginModal from "@/components/login-modal"
 import VisitBookingModal from "@/components/visit-booking-modal"
 import FeedbackModal from "@/components/feedback-modal"
 import SculptureScanner from "@/components/sculpture-scanner"
+import AboutModal from "@/components/about-modal"
 import { getSupabase } from "@/lib/supabase"
 
 export default function RecentroConecta() {
@@ -40,6 +42,8 @@ export default function RecentroConecta() {
   const [showSculptureScanner, setShowSculptureScanner] = useState(false)
   const [scannedSculpture, setScannedSculpture] = useState<any>(null)
   const [uploadedPhoto, setUploadedPhoto] = useState<File | null>(null)
+
+  const [showAboutModal, setShowAboutModal] = useState(false)
 
   const bannerImages = [
     "/images/banner.jpeg",
@@ -185,6 +189,17 @@ export default function RecentroConecta() {
                       <Languages className="w-4 h-4" />
                       {language === "pt" ? "English" : "Português"}
                     </button>
+                    {/* Add button for about modal */}
+                    <button
+                      onClick={() => {
+                        setShowAboutModal(true)
+                        setShowMenu(false)
+                      }}
+                      className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-2"
+                    >
+                      <Info className="w-4 h-4" />
+                      Sobre
+                    </button>
                   </div>
                 )}
               </div>
@@ -325,6 +340,15 @@ export default function RecentroConecta() {
             >
               <QrCode className="w-5 h-5" />
               Ingresso
+            </Button>
+
+            {/* Add button for about modal */}
+            <Button
+              onClick={() => setShowAboutModal(true)}
+              className="h-20 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white modern-button text-base flex items-center justify-center gap-2"
+            >
+              <Info className="w-5 h-5" />
+              Sobre
             </Button>
           </div>
         </div>
@@ -467,9 +491,12 @@ export default function RecentroConecta() {
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-cyan-400 transition-colors">
-                    História do Parque
-                  </a>
+                  <button
+                    onClick={() => setShowAboutModal(true)}
+                    className="hover:text-cyan-400 transition-colors text-left"
+                  >
+                    Sobre o Parque
+                  </button>
                 </li>
                 <li>
                   <a href="#" className="hover:text-cyan-400 transition-colors">
@@ -879,6 +906,7 @@ export default function RecentroConecta() {
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
       <VisitBookingModal isOpen={showBookingModal} onClose={() => setShowBookingModal(false)} />
       <FeedbackModal isOpen={showFeedbackModal} onClose={() => setShowFeedbackModal(false)} />
+      <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} />
       {showSculptureScanner && (
         <SculptureScanner
           onScan={handleSculptureScan}
