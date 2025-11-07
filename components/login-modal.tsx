@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -43,7 +45,6 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
       if (data.success) {
         console.log("[v0] Login successful:", data.employee.name)
-        // Salvar dados do funcionário no localStorage
         localStorage.setItem("employee", JSON.stringify(data.employee))
         onClose()
         router.push("/admin")
@@ -59,24 +60,36 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     }
   }
 
+  const handleClose = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    console.log("[v0] Close button clicked")
+    onClose()
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md shadow-2xl rounded-2xl p-0 border-0">
-        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-20 m-0">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClose()
+      }}
+    >
+      <Card className="w-full max-w-md shadow-2xl rounded-2xl p-0 border-0" onClick={(e) => e.stopPropagation()}>
+        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-24 m-0">
           <div className="absolute inset-0 bg-gradient-to-b from-blue-900/90 via-blue-800/80 to-cyan-700/90" />
 
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClose}
+            onClick={handleClose}
             className="absolute right-4 top-4 text-white hover:bg-white/20 rounded-full w-10 h-10 p-0 z-10 transition-all hover:scale-110"
           >
             <X className="w-6 h-6" />
           </Button>
 
-          <div className="relative z-10 flex items-center justify-center h-full text-white gap-3 px-6">
+          <div className="relative z-10 flex items-center justify-center h-full w-full text-white gap-3 px-6">
             <Lock className="w-7 h-7" />
-            <CardTitle className="text-2xl md:text-2xl font-bold">Login Administrativo</CardTitle>
+            <CardTitle className="text-2xl font-bold">Login Administrativo</CardTitle>
           </div>
         </CardHeader>
 

@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -36,11 +38,11 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     setIsSubmitting(true)
 
     try {
+      console.log("[v0] Submitting feedback with rating:", rating, "type:", visitorType)
       const supabase = getSupabase()
       const { error } = await supabase.from("satisfaction_ratings").insert({
         rating,
         comment: comment || null,
-        visitor_type: visitorType,
         created_at: new Date().toISOString(),
       })
 
@@ -48,6 +50,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
         console.error("[v0] Error saving feedback:", error)
         alert("Erro ao enviar avaliação. Tente novamente.")
       } else {
+        console.log("[v0] Feedback saved successfully")
         alert("Obrigado pela sua avaliação! 🌟")
         setRating(0)
         setComment("")
@@ -62,15 +65,30 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     }
   }
 
+  const handleClose = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    console.log("[v0] Feedback modal close button clicked")
+    onClose()
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto relative border-0 shadow-2xl rounded-2xl">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClose()
+      }}
+    >
+      <Card
+        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto relative border-0 shadow-2xl rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="absolute inset-0 z-0">
           <Image src="/images/fundo-avaliar.jpeg" alt="Parque de Esculturas" fill className="object-cover opacity-20" />
         </div>
 
         <Button
-          onClick={onClose}
+          onClick={handleClose}
           variant="ghost"
           size="icon"
           className="absolute top-4 right-4 z-10 bg-white/80 hover:bg-white"

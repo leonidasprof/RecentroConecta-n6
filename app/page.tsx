@@ -167,7 +167,7 @@ export default function RecentroConecta() {
                 </Button>
 
                 {showMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-2 z-50">
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl py-2 z-50">
                     <button
                       onClick={() => {
                         setShowLoginModal(true)
@@ -193,7 +193,7 @@ export default function RecentroConecta() {
                       className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-2"
                     >
                       <QrCode className="w-4 h-4" />
-                      Ingresso
+                      Ingresso Individual
                     </button>
                     <button
                       onClick={() => {
@@ -363,7 +363,7 @@ export default function RecentroConecta() {
               className="h-20 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white modern-button text-base flex items-center justify-center gap-2"
             >
               <QrCode className="w-5 h-5" />
-              Ingresso
+              Ingresso Individual
             </Button>
           </div>
         </div>

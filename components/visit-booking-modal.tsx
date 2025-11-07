@@ -59,11 +59,15 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
 
   useEffect(() => {
     const loadPartners = async () => {
+      console.log("[v0] Loading partners...")
       const supabase = getSupabase()
       const { data, error } = await supabase.from("partners").select("*")
 
       if (data && !error) {
+        console.log("[v0] Loaded partners:", data)
         setPartners(data)
+      } else {
+        console.error("[v0] Error loading partners:", error)
       }
     }
 
@@ -329,32 +333,32 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                 ← Voltar
               </Button>
 
-              <div className="space-y-4">
-                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Building2 className="w-5 h-5" />
+              <div className="space-y-4 bg-white/95 rounded-lg p-6">
+                <Label htmlFor="partner-select" className="text-lg font-semibold">
+                  <Building2 className="w-5 h-5 inline mr-2" />
                   Selecione sua Organização/Instituição
-                </h3>
-
-                <Select value={selectedPartner} onValueChange={setSelectedPartner}>
-                  <SelectTrigger className="h-14 text-base border-2 focus:border-emerald-500">
-                    <SelectValue placeholder="Escolha a organização" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {partners.map((partner) => (
-                      <SelectItem key={partner.id} value={partner.id.toString()}>
-                        {partner.name} - {partner.type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Button
-                  onClick={() => setStep(2)}
-                  disabled={!selectedPartner}
-                  className="w-full h-14 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-lg font-semibold disabled:opacity-50"
-                >
-                  Continuar
-                </Button>
+                </Label>
+                {partners.length > 0 ? (
+                  <Select value={selectedPartner} onValueChange={setSelectedPartner}>
+                    <SelectTrigger id="partner-select" className="h-12 text-base">
+                      <SelectValue placeholder="Escolha sua organização" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {partners.map((partner) => (
+                        <SelectItem key={partner.id} value={partner.id.toString()}>
+                          {partner.name} - {partner.type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-muted-foreground mb-3">Nenhum parceiro cadastrado ainda.</p>
+                    <Button type="button" onClick={() => setIsPartner(false)} variant="outline" className="w-full">
+                      Cadastrar como novo parceiro
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}

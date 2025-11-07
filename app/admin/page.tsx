@@ -358,9 +358,17 @@ export default function AdminDashboard() {
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    console.log("[v0] Creating employee:", newEmployee)
+
+    if (!newEmployee.name || !newEmployee.email || !newEmployee.role) {
+      alert("Por favor, preencha todos os campos obrigatórios.")
+      return
+    }
+
     const supabase = getSupabase()
 
-    const tempPassword = Math.random().toString(36).slice(-8)
+    const tempPassword = `temp${Math.random().toString(36).slice(-6)}`
+    console.log("[v0] Creating employee with temp password:", tempPassword)
 
     const { data, error } = await supabase
       .from("employees")
@@ -368,7 +376,7 @@ export default function AdminDashboard() {
         name: newEmployee.name,
         email: newEmployee.email,
         role: newEmployee.role,
-        password_hash: tempPassword, // Em produção, usar bcrypt
+        password_hash: tempPassword,
       })
       .select()
       .single()
@@ -380,6 +388,7 @@ export default function AdminDashboard() {
     }
 
     if (data) {
+      console.log("[v0] Employee created successfully:", data)
       setEmployees([
         ...employees,
         {
@@ -390,7 +399,7 @@ export default function AdminDashboard() {
         },
       ])
       alert(
-        `Funcionário criado!\nNome: ${data.name}\nEmail: ${data.email}\nSenha temporária: ${tempPassword}\n\nO funcionário deve alterar a senha no primeiro acesso.`,
+        `Funcionário criado com sucesso!\n\nNome: ${data.name}\nEmail: ${data.email}\nSenha temporária: ${tempPassword}\n\nO funcionário pode usar esta senha para fazer login.`,
       )
       setNewEmployee({ name: "", email: "", role: "" })
     }
