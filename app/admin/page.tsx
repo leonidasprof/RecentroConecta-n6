@@ -120,6 +120,8 @@ export default function AdminDashboard() {
   }, [])
 
   const handleSaveParkStatus = async () => {
+    console.log("[v0] Saving park status:", parkOpen)
+
     const supabase = getSupabase()
     const { error } = await supabase
       .from("park_settings")
@@ -383,6 +385,9 @@ export default function AdminDashboard() {
 
   const handleUpdatePartner = (e: React.FormEvent) => {
     e.preventDefault()
+
+    console.log("[v0] Updating partner:", editingPartner, "with data:", newPartner)
+
     setPartners(
       partners.map((p) =>
         p.id === editingPartner.id
@@ -504,6 +509,8 @@ export default function AdminDashboard() {
 
   const handleCreateSculpture = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    console.log("[v0] Creating sculpture with data:", newSculpture)
 
     const supabase = getSupabase()
 

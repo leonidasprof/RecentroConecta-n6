@@ -22,6 +22,7 @@ import {
 import TicketModal from "@/components/ticket-modal"
 import LoginModal from "@/components/login-modal"
 import VisitBookingModal from "@/components/visit-booking-modal"
+import FeedbackModal from "@/components/feedback-modal"
 import SculptureScanner from "@/components/sculpture-scanner"
 import { getSupabase } from "@/lib/supabase"
 
@@ -30,6 +31,7 @@ export default function RecentroConecta() {
   const [showTicketModal, setShowTicketModal] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [showBookingModal, setShowBookingModal] = useState(false)
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [visitorCount, setVisitorCount] = useState(127543)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -302,7 +304,7 @@ export default function RecentroConecta() {
             </Button>
 
             <Button
-              onClick={() => setCurrentScreen("feedback")}
+              onClick={() => setShowFeedbackModal(true)}
               className="h-20 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white modern-button text-base flex items-center justify-center gap-2"
             >
               <Star className="w-5 h-5" />
@@ -876,6 +878,7 @@ export default function RecentroConecta() {
       <TicketModal isOpen={showTicketModal} onClose={() => setShowTicketModal(false)} />
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
       <VisitBookingModal isOpen={showBookingModal} onClose={() => setShowBookingModal(false)} />
+      <FeedbackModal isOpen={showFeedbackModal} onClose={() => setShowFeedbackModal(false)} />
       {showSculptureScanner && (
         <SculptureScanner
           onScan={handleSculptureScan}
