@@ -78,14 +78,35 @@ const getPartnerIcon = (organization: string) => {
 }
 
 const generateQRCodeUrl = (sculptureId: string) => {
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
+  if (!sculptureId) {
+    console.error("[v0] Cannot generate QR code: sculpture ID is missing")
+    return ""
+  }
+
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://your-domain.com"
   const sculptureUrl = `${baseUrl}/escultura/${sculptureId}`
-  // Using a QR code generator API
-  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(sculptureUrl)}`
+
+  console.log("[v0] Generating QR code for sculpture ID:", sculptureId, "URL:", sculptureUrl)
+
+  // Using a QR code generator API with larger size for better scanning
+  return `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(sculptureUrl)}`
 }
 
 const handlePrintQRCode = (sculpture: any) => {
+  console.log("[v0] Print QR code clicked for sculpture:", sculpture)
+
+  if (!sculpture || !sculpture.id) {
+    alert("Erro: Escultura inválida. Não é possível gerar QR Code.")
+    return
+  }
+
   const qrCodeUrl = generateQRCodeUrl(sculpture.id)
+
+  if (!qrCodeUrl) {
+    alert("Erro ao gerar QR Code. Por favor, tente novamente.")
+    return
+  }
+
   const printWindow = window.open("", "_blank")
   if (printWindow) {
     printWindow.document.write(`
@@ -128,27 +149,26 @@ const handlePrintQRCode = (sculpture: any) => {
             }
             p {
               margin-top: 20px;
-              color: #666;
+              color: #888;
               font-size: 14px;
             }
             @media print {
-              body {
-                background: white;
-              }
+              body { padding: 0; }
+              .no-print { display: none; }
             }
           </style>
         </head>
         <body>
           <div class="qr-container">
             <h1>${sculpture.name}</h1>
-            <p class="code">Código: ESC${String(sculpture.code).padStart(3, "0")}</p>
+            <p class="code">ESC${String(sculpture.code).padStart(3, "0")}</p>
             <img src="${qrCodeUrl}" alt="QR Code" />
             <p>Escaneie para ver detalhes da escultura</p>
           </div>
           <script>
             window.onload = function() {
-              setTimeout(function() {
-                window.print();
+              setTimeout(function() { 
+                window.print(); 
               }, 500);
             }
           </script>
@@ -156,6 +176,9 @@ const handlePrintQRCode = (sculpture: any) => {
       </html>
     `)
     printWindow.document.close()
+    console.log("[v0] QR code print window opened successfully")
+  } else {
+    alert("Não foi possível abrir a janela de impressão. Verifique se pop-ups estão bloqueados.")
   }
 }
 
@@ -1125,7 +1148,7 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger
               value="sculptures"
-              className="flex flex-col items-center justify-center gap-2 py-6 px-4 rounded-2xl border-2 border-amber-300 bg-white shadow-md data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#F59E0B] data-[state=active]:via-[#1ed5bb] data-[state=active]:to-[#F59E0B] data-[state=active]:text-white data-[state=active]:border-[#F59E0B] data-[state=active]:shadow-xl data-[state=active]:scale-105 transition-all duration-300 hover:shadow-lg hover:scale-102"
+              className="flex flex-col items-center justify-center gap-2 py-6 px-4 rounded-2xl border-2 border-amber-300 bg-white shadow-md data-[state=active]:bg-gradient-to-br data-[state=active]:from-[#F59E0B] data-[state=active]:via-[#1ed5bb] data-[state=active]:to-[#F59E0B] data-[state=active]:text-white data-[state=active]:border-[#F97316] data-[state=active]:shadow-xl data-[state=active]:scale-105 transition-all duration-300 hover:shadow-lg hover:scale-102"
             >
               <Package className="w-8 h-8 md:w-10 md:h-10" />
               <span className="text-sm md:text-lg font-bold">Esculturas</span>
@@ -2008,93 +2031,151 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
+            {/* START: Reformatted create sculpture form to match edit form style */}
             {showCreateSculpture && (
-              <Card className="modern-card">
-                <CardHeader>
-                  <CardTitle>Nova Escultura</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="sculpture-image">Imagem da Escultura</Label>
-                    <Input
-                      id="sculpture-image"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          setImageFile(file)
-                          console.log("[v0] Image file selected:", file.name, "Size:", file.size, "bytes")
-
-                          const reader = new FileReader()
-                          reader.onloadend = () => {
-                            setImagePreview(reader.result as string)
-                            console.log("[v0] Image preview created")
-                          }
-                          reader.readAsDataURL(file)
-                        }
-                      }}
-                      className="cursor-pointer"
-                    />
-                    {imagePreview && (
-                      <div className="mt-2 space-y-2">
-                        <p className="text-sm text-muted-foreground">Pré-visualização:</p>
-                        <img
-                          src={imagePreview || "/placeholder.svg"}
-                          alt="Preview"
-                          className="w-full max-w-xs h-48 object-cover rounded-lg border-2 border-dashed border-gray-300"
-                        />
-                      </div>
-                    )}
-                    {imageFile && (
-                      <p className="text-sm text-green-600 font-medium">
-                        ✓ Arquivo selecionado: {imageFile.name} ({Math.round(imageFile.size / 1024)} KB)
-                      </p>
-                    )}
-                    {!imageFile && (
-                      <p className="text-sm text-muted-foreground">
-                        Selecione uma imagem para a escultura (recomendado: JPG ou PNG)
-                      </p>
-                    )}
+              <Card className="modern-card border-2 border-green-500">
+                <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 p-2 rounded-lg">
+                      <Package className="w-6 h-6" />
+                    </div>
+                    <CardTitle className="text-2xl font-bold">Nova Escultura</CardTitle>
                   </div>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-6">
+                  {/* Image Upload Section */}
                   <div className="space-y-2">
-                    <Label htmlFor="sculpture-name">Nome</Label>
+                    <Label className="text-base font-semibold">Imagem da Escultura</Label>
+                    <div className="flex flex-col items-center gap-4">
+                      {imagePreview ? (
+                        <div className="relative w-full max-w-md">
+                          <img
+                            src={imagePreview || "/placeholder.svg"}
+                            alt="Preview"
+                            className="w-full h-64 object-cover rounded-lg border-2 border-gray-300"
+                          />
+                          <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                            ✓ Imagem selecionada
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-full max-w-md h-64 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                          <div className="text-center">
+                            <Package className="w-16 h-16 mx-auto text-gray-400 mb-2" />
+                            <p className="text-sm text-gray-500">Nenhuma imagem selecionada</p>
+                          </div>
+                        </div>
+                      )}
+                      <input
+                        id="create-sculpture-image-input"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            // Validate file size (max 10MB)
+                            if (file.size > 10 * 1024 * 1024) {
+                              alert("Arquivo muito grande! O tamanho máximo é 10MB.")
+                              return
+                            }
+
+                            // Validate file type
+                            if (!file.type.startsWith("image/")) {
+                              alert("Por favor, selecione apenas arquivos de imagem.")
+                              return
+                            }
+
+                            setImageFile(file)
+                            console.log("[v0] Image file selected:", file.name, "Size:", file.size, "bytes")
+
+                            const reader = new FileReader()
+                            reader.onloadend = () => {
+                              setImagePreview(reader.result as string)
+                              console.log("[v0] Image preview generated")
+                            }
+                            reader.readAsDataURL(file)
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => document.getElementById("create-sculpture-image-input")?.click()}
+                        className="w-full max-w-md"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {imageFile ? "Alterar Imagem" : "Selecionar Imagem"}
+                      </Button>
+                      {imageFile && (
+                        <p className="text-sm text-green-600 font-medium">
+                          ✓ {imageFile.name} ({Math.round(imageFile.size / 1024)} KB)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Name Field */}
+                  <div className="space-y-2">
+                    <Label htmlFor="sculpture-name" className="text-base font-semibold">
+                      Nome da Escultura
+                    </Label>
                     <Input
                       id="sculpture-name"
                       value={newSculpture.name}
                       onChange={(e) => setNewSculpture({ ...newSculpture, name: e.target.value })}
-                      placeholder="Nome da escultura"
+                      placeholder="Ex: Coluna de Cristal"
+                      className="text-base"
                     />
                   </div>
+
+                  {/* Description Field */}
                   <div className="space-y-2">
-                    <Label htmlFor="sculpture-description">Descrição</Label>
+                    <Label htmlFor="sculpture-description" className="text-base font-semibold">
+                      Descrição
+                    </Label>
                     <Textarea
                       id="sculpture-description"
                       value={newSculpture.description}
                       onChange={(e) => setNewSculpture({ ...newSculpture, description: e.target.value })}
-                      placeholder="Descrição da escultura"
+                      placeholder="Descreva a escultura, seus detalhes e características..."
                       rows={3}
+                      className="text-base"
                     />
                   </div>
+
+                  {/* Curiosity Field */}
                   <div className="space-y-2">
-                    <Label htmlFor="sculpture-curiosity">Curiosidade</Label>
+                    <Label htmlFor="sculpture-curiosity" className="text-base font-semibold">
+                      Curiosidade
+                    </Label>
                     <Textarea
                       id="sculpture-curiosity"
                       value={newSculpture.curiosity}
                       onChange={(e) => setNewSculpture({ ...newSculpture, curiosity: e.target.value })}
-                      placeholder="Curiosidades sobre a escultura"
+                      placeholder="Compartilhe curiosidades interessantes sobre a escultura..."
                       rows={3}
+                      className="text-base"
                     />
                   </div>
-                  <div className="flex gap-2">
-                    <Button onClick={handleCreateSculpture} disabled={uploadingImage} className="flex-1">
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-4">
+                    <Button
+                      onClick={handleCreateSculpture}
+                      disabled={uploadingImage}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-6 text-base"
+                    >
                       {uploadingImage ? (
                         <>
                           <span className="animate-spin mr-2">⏳</span>
                           Enviando imagem...
                         </>
                       ) : (
-                        "Criar Escultura"
+                        <>
+                          <Plus className="w-5 h-5 mr-2" />
+                          Criar Escultura
+                        </>
                       )}
                     </Button>
                     <Button
@@ -2103,7 +2184,9 @@ export default function AdminDashboard() {
                         setShowCreateSculpture(false)
                         setImageFile(null)
                         setImagePreview(null)
+                        setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
                       }}
+                      className="px-8 py-6 text-base font-semibold"
                     >
                       Cancelar
                     </Button>
@@ -2111,6 +2194,7 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
             )}
+            {/* END: Reformatted create sculpture form to match edit form style */}
 
             {/* Edit Sculpture Modal */}
             {editingSculpture && (

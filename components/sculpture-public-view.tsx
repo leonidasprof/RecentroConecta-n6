@@ -18,10 +18,18 @@ export default function SculpturePublicView({ sculpture }: { sculpture: Sculptur
   const [likes, setLikes] = useState(0)
   const [userLiked, setUserLiked] = useState(false)
 
-  console.log("[v0] Public view rendering sculpture:", sculpture.name, "Image URL:", sculpture.image_url)
+  console.log("[v0] Public view rendering sculpture:", {
+    name: sculpture.name,
+    id: sculpture.id,
+    hasImageUrl: !!sculpture.image_url,
+    imageUrl: sculpture.image_url,
+    isValidImageUrl: sculpture.image_url?.startsWith("http"),
+  })
 
   const handleLike = async (rating: number) => {
     if (userLiked) return
+
+    console.log("[v0] User clicked heart:", rating, "for sculpture:", sculpture.name)
 
     try {
       const response = await fetch("/api/sculptures/like", {
@@ -33,27 +41,30 @@ export default function SculpturePublicView({ sculpture }: { sculpture: Sculptur
       if (response.ok) {
         setLikes(rating)
         setUserLiked(true)
-        console.log("[v0] Like registered successfully:", rating)
+        console.log("[v0] Like registered successfully with rating:", rating)
+      } else {
+        console.error("[v0] Failed to register like. Status:", response.status)
       }
     } catch (error) {
       console.error("[v0] Error liking sculpture:", error)
     }
   }
 
+  const hasValidImage =
+    sculpture.image_url && !sculpture.image_url.includes("placeholder.svg") && sculpture.image_url.startsWith("http")
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-blue-100 to-cyan-100 p-4">
       <div className="max-w-2xl mx-auto py-8">
         <Card className="overflow-hidden shadow-2xl">
           <div className="relative h-80 bg-gradient-to-br from-purple-200 to-blue-200 flex items-center justify-center">
-            {sculpture.image_url &&
-            !sculpture.image_url.includes("placeholder.svg") &&
-            sculpture.image_url.startsWith("http") ? (
+            {hasValidImage ? (
               <img
                 src={sculpture.image_url || "/placeholder.svg"}
                 alt={sculpture.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  console.log("[v0] Public view: Image failed to load:", sculpture.image_url)
+                  console.error("[v0] Image failed to load:", sculpture.image_url)
                   e.currentTarget.style.display = "none"
                   const parent = e.currentTarget.parentElement
                   if (parent) {
