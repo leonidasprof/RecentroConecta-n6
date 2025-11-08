@@ -781,23 +781,40 @@ export default function AdminDashboard() {
 
   const handleImageUpload = async (file: File): Promise<string> => {
     console.log("[v0] Starting upload for file:", file.name, "Size:", file.size, "bytes")
+
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error("Arquivo muito grande. Tamanho máximo: 10MB")
+    }
+
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Arquivo deve ser uma imagem (JPG, PNG, etc.)")
+    }
+
     const formData = new FormData()
     formData.append("file", file)
 
     try {
+      console.log("[v0] Sending POST request to /api/upload...")
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       })
 
+      console.log("[v0] Response status:", response.status)
+
       if (!response.ok) {
         const errorText = await response.text()
         console.error("[v0] Upload failed with status:", response.status, "Error:", errorText)
-        throw new Error("Failed to upload image")
+        throw new Error(`Falha no upload (${response.status}): ${errorText}`)
       }
 
       const data = await response.json()
       console.log("[v0] Upload successful! URL:", data.url)
+
+      if (!data.url || typeof data.url !== "string") {
+        throw new Error("URL inválida retornada pelo servidor")
+      }
+
       return data.url
     } catch (error) {
       console.error("[v0] Upload error:", error)
