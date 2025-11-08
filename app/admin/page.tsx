@@ -55,6 +55,10 @@ import {
   X,
   Pencil,
   Package,
+  Loader2,
+  Save,
+  CheckCircle2,
+  Upload,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -196,6 +200,7 @@ export default function AdminDashboard() {
   const [editingSculpture, setEditingSculpture] = useState<any>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   const [bookings, setBookings] = useState<any[]>([])
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
@@ -775,24 +780,35 @@ export default function AdminDashboard() {
   }, [])
 
   const handleImageUpload = async (file: File): Promise<string> => {
+    console.log("[v0] Starting upload for file:", file.name, "Size:", file.size, "bytes")
     const formData = new FormData()
     formData.append("file", file)
 
-    const response = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    })
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
 
-    if (!response.ok) {
-      throw new Error("Failed to upload image")
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("[v0] Upload failed with status:", response.status, "Error:", errorText)
+        throw new Error("Failed to upload image")
+      }
+
+      const data = await response.json()
+      console.log("[v0] Upload successful! URL:", data.url)
+      return data.url
+    } catch (error) {
+      console.error("[v0] Upload error:", error)
+      throw error
     }
-
-    const data = await response.json()
-    return data.url
   }
 
   const handleCreateSculpture = async () => {
     try {
+      console.log("[v0] handleCreateSculpture called. imageFile:", imageFile?.name)
+
       if (!newSculpture.name.trim()) {
         alert("Por favor, preencha o nome da escultura")
         return
@@ -803,13 +819,18 @@ export default function AdminDashboard() {
 
       if (imageFile) {
         try {
+          console.log("[v0] Uploading image file:", imageFile.name)
           imageUrl = await handleImageUpload(imageFile)
-          console.log("[v0] Image uploaded:", imageUrl)
+          console.log("[v0] Image uploaded successfully:", imageUrl)
         } catch (error) {
           console.error("[v0] Error uploading image:", error)
           alert("Erro ao fazer upload da imagem. A escultura será criada sem imagem.")
         }
+      } else {
+        console.log("[v0] No image file selected")
       }
+
+      console.log("[v0] Creating sculpture with image_url:", imageUrl)
 
       const response = await fetch("/api/sculptures/create", {
         method: "POST",
@@ -836,6 +857,7 @@ export default function AdminDashboard() {
       // Reset form
       setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
       setImageFile(null)
+      setImagePreview(null)
       setShowCreateSculpture(false)
     } catch (error: any) {
       console.error("[v0] Error creating sculpture:", error.message)
@@ -846,22 +868,24 @@ export default function AdminDashboard() {
   }
 
   const handleEditSculpture = (sculpture: any) => {
+    console.log("[v0] Edit sculpture button clicked:", sculpture.name)
     setEditingSculpture(sculpture)
     setNewSculpture({
-      // This should likely be setEditingSculpture, but keeping as is for now
       name: sculpture.name,
       description: sculpture.description,
       curiosity: sculpture.curiosity,
-      imageUrl: sculpture.image_url, // Make sure to also set imageUrl for editing
+      imageUrl: sculpture.image_url,
     })
-    setImageFile(null) // Clear any previously selected file when starting edit
-    // setShowCreateSculpture(false); // Ensure this modal is not showing if we open edit
+    setImageFile(null)
+    setImagePreview(sculpture.image_url && !sculpture.image_url.includes("placeholder") ? sculpture.image_url : null)
   }
 
   const handleUpdateSculpture = async () => {
     try {
-      if (!editingSculpture || !editingSculpture.name.trim()) {
-        alert("Por favor, preencha o nome da escultura")
+      console.log("[v0] handleUpdateSculpture called. imageFile:", imageFile?.name)
+
+      if (!editingSculpture || !newSculpture.name.trim()) {
+        alert("Nome é obrigatório")
         return
       }
 
@@ -870,22 +894,27 @@ export default function AdminDashboard() {
 
       if (imageFile) {
         try {
+          console.log("[v0] Uploading new image for sculpture:", imageFile.name)
           imageUrl = await handleImageUpload(imageFile)
-          console.log("[v0] Image uploaded:", imageUrl)
+          console.log("[v0] New image uploaded successfully:", imageUrl)
         } catch (error) {
           console.error("[v0] Error uploading image:", error)
-          alert("Erro ao fazer upload da imagem. A escultura será atualizada sem nova imagem.")
+          alert("Erro ao fazer upload da nova imagem. As outras alterações serão salvas.")
         }
+      } else {
+        console.log("[v0] No new image selected, keeping existing:", imageUrl)
       }
+
+      console.log("[v0] Updating sculpture with image_url:", imageUrl)
 
       const response = await fetch("/api/sculptures/update", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: editingSculpture.id,
-          name: editingSculpture.name,
-          description: editingSculpture.description,
-          curiosity: editingSculpture.curiosity,
+          name: newSculpture.name,
+          description: newSculpture.description,
+          curiosity: newSculpture.curiosity,
           image_url: imageUrl,
         }),
       })
@@ -903,7 +932,9 @@ export default function AdminDashboard() {
 
       // Reset form
       setEditingSculpture(null)
+      setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
       setImageFile(null)
+      setImagePreview(null)
     } catch (error: any) {
       console.error("[v0] Error updating sculpture:", error.message)
       alert(`Erro ao atualizar escultura: ${error.message}`)
@@ -934,6 +965,7 @@ export default function AdminDashboard() {
     setEditingSculpture(null)
     setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" }) // Resetting newSculpture as well
     setImageFile(null) // Clear image file when cancelling edit
+    setImagePreview(null) // Clear preview when cancelling edit
   }
 
   const renderPieLabel = (entry: any) => {
@@ -1889,7 +1921,6 @@ export default function AdminDashboard() {
                       className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
                     >
                       <div className="flex items-center gap-4">
-                        {/* CHANGE STARTS HERE */}
                         <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 to-orange-100 border-2 border-amber-200">
                           {sculpture.image_url && !sculpture.image_url.includes("placeholder.svg") ? (
                             <img
@@ -1915,7 +1946,6 @@ export default function AdminDashboard() {
                             </div>
                           )}
                         </div>
-                        {/* CHANGE ENDS HERE */}
                         <div>
                           <h4 className="font-semibold text-lg">{sculpture.name}</h4>
                           <p className="text-sm text-muted-foreground">
@@ -1929,8 +1959,7 @@ export default function AdminDashboard() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setEditingSculpture(sculpture)
-                            setImageFile(null)
+                            handleEditSculpture(sculpture) // Use handleEditSculpture to set editing state
                           }}
                           className="bg-transparent hover:bg-blue-50"
                         >
@@ -1978,12 +2007,37 @@ export default function AdminDashboard() {
                         const file = e.target.files?.[0]
                         if (file) {
                           setImageFile(file)
-                          console.log("[v0] Image file selected:", file.name)
+                          console.log("[v0] Image file selected:", file.name, "Size:", file.size, "bytes")
+
+                          const reader = new FileReader()
+                          reader.onloadend = () => {
+                            setImagePreview(reader.result as string)
+                            console.log("[v0] Image preview created")
+                          }
+                          reader.readAsDataURL(file)
                         }
                       }}
+                      className="cursor-pointer"
                     />
+                    {imagePreview && (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-sm text-muted-foreground">Pré-visualização:</p>
+                        <img
+                          src={imagePreview || "/placeholder.svg"}
+                          alt="Preview"
+                          className="w-full max-w-xs h-48 object-cover rounded-lg border-2 border-dashed border-gray-300"
+                        />
+                      </div>
+                    )}
                     {imageFile && (
-                      <p className="text-sm text-muted-foreground">Arquivo selecionado: {imageFile.name}</p>
+                      <p className="text-sm text-green-600 font-medium">
+                        ✓ Arquivo selecionado: {imageFile.name} ({Math.round(imageFile.size / 1024)} KB)
+                      </p>
+                    )}
+                    {!imageFile && (
+                      <p className="text-sm text-muted-foreground">
+                        Selecione uma imagem para a escultura (recomendado: JPG ou PNG)
+                      </p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -2011,22 +2065,190 @@ export default function AdminDashboard() {
                       id="sculpture-curiosity"
                       value={newSculpture.curiosity}
                       onChange={(e) => setNewSculpture({ ...newSculpture, curiosity: e.target.value })}
-                      placeholder="Curiosidade sobre a escultura"
+                      placeholder="Curiosidades sobre a escultura"
                       rows={3}
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={handleCreateSculpture} disabled={uploadingImage}>
-                      {uploadingImage ? "Enviando..." : "Criar Escultura"}
+                    <Button onClick={handleCreateSculpture} disabled={uploadingImage} className="flex-1">
+                      {uploadingImage ? (
+                        <>
+                          <span className="animate-spin mr-2">⏳</span>
+                          Enviando imagem...
+                        </>
+                      ) : (
+                        "Criar Escultura"
+                      )}
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => {
                         setShowCreateSculpture(false)
                         setImageFile(null)
+                        setImagePreview(null)
                       }}
                     >
                       Cancelar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Edit Sculpture Modal */}
+            {editingSculpture && (
+              <Card className="modern-card border-2 border-blue-500 shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-3 text-2xl font-bold text-blue-700">
+                      <Package className="w-8 h-8" />
+                      Editar Escultura
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditingSculpture(null)
+                        setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
+                        setImageFile(null)
+                        setImagePreview(null)
+                      }}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-6">
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold">Imagem da Escultura</Label>
+
+                    {/* Current or preview image */}
+                    <div className="flex items-center gap-4">
+                      {imagePreview ? (
+                        <img
+                          src={imagePreview || "/placeholder.svg"}
+                          alt="Preview"
+                          className="w-32 h-32 object-cover rounded-lg border-2 border-blue-300 shadow-md"
+                        />
+                      ) : editingSculpture?.image_url && !editingSculpture.image_url.includes("placeholder") ? (
+                        <img
+                          src={editingSculpture.image_url || "/placeholder.svg"}
+                          alt="Imagem atual"
+                          className="w-32 h-32 object-cover rounded-lg border-2 border-gray-300 shadow-md"
+                        />
+                      ) : (
+                        <div className="w-32 h-32 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg border-2 border-dashed border-blue-300 flex items-center justify-center">
+                          <Package className="w-16 h-16 text-blue-300" />
+                        </div>
+                      )}
+
+                      <div className="flex-1 space-y-2">
+                        <input
+                          id="edit-sculpture-image-input"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              console.log("[v0] Image file selected for edit:", file.name, "Size:", file.size)
+                              setImageFile(file)
+                              const reader = new FileReader()
+                              reader.onloadend = () => {
+                                setImagePreview(reader.result as string)
+                                console.log("[v0] Image preview generated for edit")
+                              }
+                              reader.readAsDataURL(file)
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => document.getElementById("edit-sculpture-image-input")?.click()}
+                          className="w-full h-12 border-2 border-blue-300 hover:bg-blue-50 hover:border-blue-400 transition-all"
+                        >
+                          <Upload className="w-5 h-5 mr-2" />
+                          {imageFile ? "Alterar Imagem" : "Selecionar Nova Imagem"}
+                        </Button>
+                        {imageFile && (
+                          <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-2 rounded">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span className="font-medium">{imageFile.name}</span>
+                            <span className="text-xs text-gray-500">({(imageFile.size / 1024).toFixed(1)} KB)</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-sculpture-name" className="text-base font-semibold">
+                      Nome da Escultura
+                    </Label>
+                    <Input
+                      id="edit-sculpture-name"
+                      value={newSculpture.name}
+                      onChange={(e) => setNewSculpture({ ...newSculpture, name: e.target.value })}
+                      placeholder="Nome da escultura"
+                      className="h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-sculpture-description" className="text-base font-semibold">
+                      Descrição
+                    </Label>
+                    <Textarea
+                      id="edit-sculpture-description"
+                      value={newSculpture.description}
+                      onChange={(e) => setNewSculpture({ ...newSculpture, description: e.target.value })}
+                      placeholder="Descreva a escultura"
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-sculpture-curiosity" className="text-base font-semibold">
+                      Curiosidade
+                    </Label>
+                    <Textarea
+                      id="edit-sculpture-curiosity"
+                      value={newSculpture.curiosity}
+                      onChange={(e) => setNewSculpture({ ...newSculpture, curiosity: e.target.value })}
+                      placeholder="Curiosidades sobre a escultura"
+                      rows={3}
+                      className="resize-none"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditingSculpture(null)
+                        setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
+                        setImageFile(null)
+                        setImagePreview(null)
+                      }}
+                      className="h-12 px-6"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleUpdateSculpture}
+                      disabled={uploadingImage}
+                      className="h-12 px-8 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 font-semibold"
+                    >
+                      {uploadingImage ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          {imageFile ? "Enviando imagem..." : "Salvando..."}
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Salvar Alterações
+                        </>
+                      )}
                     </Button>
                   </div>
                 </CardContent>

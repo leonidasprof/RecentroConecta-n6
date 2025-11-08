@@ -18,6 +18,8 @@ export default function SculpturePublicView({ sculpture }: { sculpture: Sculptur
   const [likes, setLikes] = useState(0)
   const [userLiked, setUserLiked] = useState(false)
 
+  console.log("[v0] Public view rendering sculpture:", sculpture.name, "Image URL:", sculpture.image_url)
+
   const handleLike = async (rating: number) => {
     if (userLiked) return
 
@@ -31,6 +33,7 @@ export default function SculpturePublicView({ sculpture }: { sculpture: Sculptur
       if (response.ok) {
         setLikes(rating)
         setUserLiked(true)
+        console.log("[v0] Like registered successfully:", rating)
       }
     } catch (error) {
       console.error("[v0] Error liking sculpture:", error)
@@ -42,7 +45,9 @@ export default function SculpturePublicView({ sculpture }: { sculpture: Sculptur
       <div className="max-w-2xl mx-auto py-8">
         <Card className="overflow-hidden shadow-2xl">
           <div className="relative h-80 bg-gradient-to-br from-purple-200 to-blue-200 flex items-center justify-center">
-            {sculpture.image_url && !sculpture.image_url.includes("placeholder.svg") ? (
+            {sculpture.image_url &&
+            !sculpture.image_url.includes("placeholder.svg") &&
+            sculpture.image_url.startsWith("http") ? (
               <img
                 src={sculpture.image_url || "/placeholder.svg"}
                 alt={sculpture.name}
@@ -52,15 +57,16 @@ export default function SculpturePublicView({ sculpture }: { sculpture: Sculptur
                   e.currentTarget.style.display = "none"
                   const parent = e.currentTarget.parentElement
                   if (parent) {
-                    parent.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-100 to-orange-100"><svg class="w-32 h-32 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect></svg></div>`
+                    parent.innerHTML = `<div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-100 to-orange-100"><svg class="w-32 h-32 text-amber-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect></svg><div class="text-center px-6"><p class="text-amber-700 font-semibold mb-2">Imagem não disponível</p><p class="text-xs text-amber-600">A imagem desta escultura não pôde ser carregada</p></div></div>`
                   }
                 }}
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-100 to-orange-100">
-                <Package className="w-32 h-32 text-amber-400" />
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-4 py-2 rounded-lg text-sm">
-                  Imagem não disponível
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-100 to-orange-100">
+                <Package className="w-32 h-32 text-amber-400 mb-4" />
+                <div className="text-center px-6">
+                  <p className="text-amber-700 font-semibold mb-2">Imagem não disponível</p>
+                  <p className="text-xs text-amber-600">Esta escultura ainda não possui uma imagem cadastrada</p>
                 </div>
               </div>
             )}

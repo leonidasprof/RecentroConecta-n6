@@ -5,13 +5,14 @@ import SculpturePublicView from "@/components/sculpture-public-view"
 async function getSculpture(id: string) {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-  const { data, error } = await supabase.from("sculptures").select("*").eq("id", id).single()
+  const { data, error } = await supabase.from("sculptures").select("*").eq("id", id).limit(1).single()
 
   if (error) {
     console.error("[v0] Error loading sculpture:", error)
     return null
   }
 
+  console.log("[v0] Loaded sculpture for public view:", data)
   return data
 }
 
