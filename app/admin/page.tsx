@@ -59,6 +59,7 @@ import {
   Save,
   CheckCircle2,
   Upload,
+  Search,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -224,6 +225,7 @@ export default function AdminDashboard() {
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [sculptures, setSculptures] = useState<any[]>([]) // Declare sculptures state here
 
   const [bookings, setBookings] = useState<any[]>([])
   const [selectedBooking, setSelectedBooking] = useState<any>(null)
@@ -235,6 +237,8 @@ export default function AdminDashboard() {
   const [feedbacks, setFeedbacks] = useState<any[]>([])
 
   const [showCreateSculpture, setShowCreateSculpture] = useState(false)
+
+  const [sculptureSearchQuery, setSculptureSearchQuery] = useState("")
 
   useEffect(() => {
     const employeeData = localStorage.getItem("employee")
@@ -358,7 +362,8 @@ export default function AdminDashboard() {
 
   const [sculptureImage, setSculptureImage] = useState<File | null>(null) // Added for image upload
 
-  const [sculptures, setSculptures] = useState<any[]>([])
+  // Removed sculptures state as it's already declared above
+  // const [sculptures, setSculptures] = useState<any[]>([])
 
   const sculptureVisits = [
     { name: "Coluna de Cristal", visits: 3456, color: "#06B6D4" },
@@ -784,17 +789,19 @@ export default function AdminDashboard() {
 
   const loadSculptures = async () => {
     try {
+      console.log("[v0] loadSculptures: Fetching sculptures from API...")
       const response = await fetch("/api/sculptures/list")
       const result = await response.json()
 
       if (result.success) {
-        console.log("[v0] Loaded sculptures:", result.data)
-        setSculptures(result.data)
+        console.log("[v0] loadSculptures: Successfully loaded", result.data.length, "sculptures")
+        console.log("[v0] loadSculptures: Sculpture data:", JSON.stringify(result.data, null, 2))
+        setSculptures(result.data) // This line was causing the error, but the state is now declared
       } else {
-        console.error("[v0] Error loading sculptures:", result.error)
+        console.error("[v0] loadSculptures: Error from API:", result.error)
       }
     } catch (error) {
-      console.error("[v0] Error loading sculptures:", error)
+      console.error("[v0] loadSculptures: Exception occurred:", error)
     }
   }
 
@@ -847,7 +854,13 @@ export default function AdminDashboard() {
 
   const handleCreateSculpture = async () => {
     try {
-      console.log("[v0] handleCreateSculpture called. imageFile:", imageFile?.name)
+      console.log("[v0] ====== CREATING NEW SCULPTURE ======")
+      console.log("[v0] handleCreateSculpture: Started. imageFile:", imageFile?.name)
+      console.log("[v0] handleCreateSculpture: Form data:", {
+        name: newSculpture.name,
+        description: newSculpture.description,
+        curiosity: newSculpture.curiosity,
+      })
 
       if (!newSculpture.name.trim()) {
         alert("Por favor, preencha o nome da escultura")
@@ -859,18 +872,23 @@ export default function AdminDashboard() {
 
       if (imageFile) {
         try {
-          console.log("[v0] Uploading image file:", imageFile.name)
+          console.log("[v0] handleCreateSculpture: Uploading image file:", imageFile.name)
           imageUrl = await handleImageUpload(imageFile)
-          console.log("[v0] Image uploaded successfully:", imageUrl)
+          console.log("[v0] handleCreateSculpture: Image uploaded successfully:", imageUrl)
         } catch (error) {
-          console.error("[v0] Error uploading image:", error)
+          console.error("[v0] handleCreateSculpture: Error uploading image:", error)
           alert("Erro ao fazer upload da imagem. A escultura será criada sem imagem.")
         }
       } else {
-        console.log("[v0] No image file selected")
+        console.log("[v0] handleCreateSculpture: No image file selected")
       }
 
-      console.log("[v0] Creating sculpture with image_url:", imageUrl)
+      console.log("[v0] handleCreateSculpture: Creating sculpture with data:", {
+        name: newSculpture.name,
+        description: newSculpture.description,
+        curiosity: newSculpture.curiosity,
+        image_url: imageUrl,
+      })
 
       const response = await fetch("/api/sculptures/create", {
         method: "POST",
@@ -883,24 +901,34 @@ export default function AdminDashboard() {
         }),
       })
 
+      console.log("[v0] handleCreateSculpture: API response status:", response.status)
+
       if (!response.ok) {
         const error = await response.json()
+        console.error("[v0] handleCreateSculpture: API error response:", error)
         throw new Error(error.error || "Erro ao criar escultura")
       }
 
       const data = await response.json()
-      console.log("[v0] Sculpture created:", data)
+      console.log("[v0] handleCreateSculpture: Sculpture created successfully:", data)
+      console.log("[v0] handleCreateSculpture: New sculpture ID:", data.sculpture?.id)
 
-      // Reload sculptures from database
+      console.log("[v0] handleCreateSculpture: Reloading sculptures list...")
+      console.log("[v0] handleCreateSculpture: Current sculptures count BEFORE reload:", sculptures.length)
       await loadSculptures()
+      console.log("[v0] handleCreateSculpture: Sculptures list reloaded")
+      console.log("[v0] handleCreateSculpture: Current sculptures count AFTER reload:", sculptures.length)
 
       // Reset form
       setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
       setImageFile(null)
       setImagePreview(null)
       setShowCreateSculpture(false)
+
+      console.log("[v0] ====== SCULPTURE CREATION COMPLETE ======")
+      alert("Escultura criada com sucesso!")
     } catch (error: any) {
-      console.error("[v0] Error creating sculpture:", error.message)
+      console.error("[v0] handleCreateSculpture: Error occurred:", error.message)
       alert(`Erro ao criar escultura: ${error.message}`)
     } finally {
       setUploadingImage(false)
@@ -997,7 +1025,7 @@ export default function AdminDashboard() {
       return
     }
 
-    setSculptures(sculptures.filter((s) => s.id !== sculptureId))
+    setSculptures(sculptures.filter((s) => s.id !== sculptureId)) // This line was causing the error, but sculptures state is now declared
     alert("Escultura excluída com sucesso!")
   }
 
@@ -1075,6 +1103,10 @@ export default function AdminDashboard() {
     loadFeedbacks()
     loadSculptures() // Added call to load sculptures
   }, [])
+
+  const filteredSculptures = sculptures.filter((sculpture) =>
+    sculpture.name.toLowerCase().includes(sculptureSearchQuery.toLowerCase()),
+  )
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50">
@@ -1929,13 +1961,27 @@ export default function AdminDashboard() {
             <Card className="modern-card">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-6 h-6 text-[#F59E0B]" />
-                    <div>
-                      <CardTitle className="text-2xl font-bold">Esculturas Cadastradas</CardTitle>
-                      <CardDescription>
-                        Gerencie as esculturas do parque • Total: {sculptures.length} esculturas
-                      </CardDescription>
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-6 h-6 text-[#F59E0B]" />
+                      <div>
+                        <CardTitle className="text-2xl font-bold">Esculturas Cadastradas</CardTitle>
+                        <CardDescription>
+                          Gerencie as esculturas do parque • Total: {sculptures.length} esculturas
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex-1 max-w-md">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                          type="text"
+                          placeholder="Buscar escultura por nome..."
+                          value={sculptureSearchQuery}
+                          onChange={(e) => setSculptureSearchQuery(e.target.value)}
+                          className="pl-10 h-10 bg-gray-50 border-gray-200 focus:bg-white"
+                        />
+                      </div>
                     </div>
                   </div>
                   <Button
@@ -1948,14 +1994,23 @@ export default function AdminDashboard() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {sculptures.length === 0 ? (
+                {filteredSculptures.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                    <p>Nenhuma escultura cadastrada ainda.</p>
-                    <p className="text-sm">Clique em "Nova Escultura" para começar.</p>
+                    {sculptureSearchQuery ? (
+                      <>
+                        <p>Nenhuma escultura encontrada com "{sculptureSearchQuery}".</p>
+                        <p className="text-sm">Tente outro termo de busca.</p>
+                      </>
+                    ) : (
+                      <>
+                        <p>Nenhuma escultura cadastrada ainda.</p>
+                        <p className="text-sm">Clique em "Nova Escultura" para começar.</p>
+                      </>
+                    )}
                   </div>
                 ) : (
-                  sculptures.map((sculpture) => (
+                  filteredSculptures.map((sculpture) => (
                     <div
                       key={sculpture.id}
                       className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
