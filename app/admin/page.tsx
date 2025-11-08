@@ -60,6 +60,7 @@ import {
   CheckCircle2,
   Upload,
   Search,
+  Printer,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -219,7 +220,7 @@ export default function AdminDashboard() {
     name: "",
     description: "",
     curiosity: "",
-    imageUrl: "",
+    imageUrl: "", // This will be used for preview URL, not the actual uploaded file
   })
   const [editingSculpture, setEditingSculpture] = useState<any>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -239,6 +240,8 @@ export default function AdminDashboard() {
   const [showCreateSculpture, setShowCreateSculpture] = useState(false)
 
   const [sculptureSearchQuery, setSculptureSearchQuery] = useState("")
+
+  const [loading, setLoading] = useState(false) // Added for general loading state
 
   useEffect(() => {
     const employeeData = localStorage.getItem("employee")
@@ -260,15 +263,20 @@ export default function AdminDashboard() {
     loadFeedbacks()
   }, [])
 
-  // Define loadEmployees here to fix undeclared variable error
   const loadEmployees = async () => {
     try {
+      console.log("[v0] Loading employees...")
       const response = await fetch("/api/employees/list")
       const result = await response.json()
 
+      console.log("[v0] Employees API response:", result)
+
       if (result.success) {
+        console.log("[v0] Loaded employees count:", result.data.length)
         console.log("[v0] Loaded employees:", result.data)
         setEmployees(result.data)
+      } else {
+        console.error("[v0] Failed to load employees:", result.error)
       }
     } catch (error) {
       console.error("[v0] Error loading employees:", error)
@@ -359,11 +367,6 @@ export default function AdminDashboard() {
     localStorage.setItem("parkStatus", parkOpen.toString())
     alert(`Status do parque salvo com sucesso!\n\nO parque está agora: ${parkOpen ? "ABERTO" : "FECHADO"}`)
   }
-
-  const [sculptureImage, setSculptureImage] = useState<File | null>(null) // Added for image upload
-
-  // Removed sculptures state as it's already declared above
-  // const [sculptures, setSculptures] = useState<any[]>([])
 
   const sculptureVisits = [
     { name: "Coluna de Cristal", visits: 3456, color: "#06B6D4" },
@@ -513,6 +516,7 @@ export default function AdminDashboard() {
     }
 
     try {
+      console.log("[v0] Sending create employee request...")
       const response = await fetch("/api/employees/create", {
         method: "POST",
         headers: {
@@ -522,6 +526,7 @@ export default function AdminDashboard() {
       })
 
       const result = await response.json()
+      console.log("[v0] Create employee response:", result)
 
       if (!response.ok) {
         console.error("[v0] Error creating employee:", result.error)
@@ -530,13 +535,11 @@ export default function AdminDashboard() {
       }
 
       console.log("[v0] Employee created successfully:", result)
+      console.log("[v0] Reloading employees list...")
 
-      const employeesResponse = await fetch("/api/employees/list")
-      const employeesResult = await employeesResponse.json()
+      await loadEmployees()
 
-      if (employeesResult.success) {
-        setEmployees(employeesResult.data)
-      }
+      console.log("[v0] Employees after reload:", employees.length)
 
       alert(
         `Funcionário criado com sucesso!\n\nNome: ${result.employee.name}\nEmail: ${result.employee.email}\nSenha temporária: ${result.tempPassword}\n\nO funcionário pode usar esta senha para fazer login.`,
@@ -868,6 +871,7 @@ export default function AdminDashboard() {
       }
 
       setUploadingImage(true)
+      setLoading(true) // Set general loading state
       let imageUrl = newSculpture.imageUrl
 
       if (imageFile) {
@@ -932,6 +936,7 @@ export default function AdminDashboard() {
       alert(`Erro ao criar escultura: ${error.message}`)
     } finally {
       setUploadingImage(false)
+      setLoading(false) // Reset general loading state
     }
   }
 
@@ -944,7 +949,7 @@ export default function AdminDashboard() {
       curiosity: sculpture.curiosity,
       imageUrl: sculpture.image_url,
     })
-    setImageFile(null)
+    setImageFile(null) // Clear previous file when editing
     setImagePreview(sculpture.image_url && !sculpture.image_url.includes("placeholder") ? sculpture.image_url : null)
   }
 
@@ -958,6 +963,7 @@ export default function AdminDashboard() {
       }
 
       setUploadingImage(true)
+      setLoading(true) // Set general loading state
       let imageUrl = editingSculpture.image_url
 
       if (imageFile) {
@@ -1008,6 +1014,7 @@ export default function AdminDashboard() {
       alert(`Erro ao atualizar escultura: ${error.message}`)
     } finally {
       setUploadingImage(false)
+      setLoading(false) // Reset general loading state
     }
   }
 
@@ -1646,51 +1653,59 @@ export default function AdminDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {employees.map((employee) => (
-                    <div
-                      key={employee.id}
-                      className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-lg">{employee.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {employee.email} • {employee.role}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => handleEditEmployee(employee)}
-                            variant="outline"
-                            size="sm"
-                            className="bg-transparent hover:bg-blue-50"
-                          >
-                            <Edit2 className="w-4 h-4 mr-1" />
-                            Editar
-                          </Button>
-                          <Button
-                            onClick={() => handleEditPassword(employee)}
-                            variant="outline"
-                            size="sm"
-                            className="bg-transparent hover:bg-purple-50 text-purple-600 hover:text-purple-700"
-                          >
-                            🔒 Senha
-                          </Button>
-                          <Button
-                            onClick={() => handleDeleteEmployee(employee.id)}
-                            variant="outline"
-                            size="sm"
-                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Excluir
-                          </Button>
+                {employees.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-semibold">Nenhum funcionário cadastrado ainda.</p>
+                    <p className="text-sm">Clique em "Cadastrar Novo Funcionário" para começar.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {employees.map((employee) => (
+                      <div
+                        key={employee.id}
+                        className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200"
+                      >
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-lg">{employee.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {employee.email} • {employee.role}
+                            </p>
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Button
+                              onClick={() => handleEditEmployee(employee)}
+                              variant="outline"
+                              size="sm"
+                              className="bg-transparent hover:bg-blue-50 w-full sm:w-auto"
+                            >
+                              <Edit2 className="w-4 h-4 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              onClick={() => handleEditPassword(employee)}
+                              variant="outline"
+                              size="sm"
+                              className="bg-transparent hover:bg-purple-50 text-purple-600 hover:text-purple-700 w-full sm:w-auto"
+                            >
+                              🔒 Senha
+                            </Button>
+                            <Button
+                              onClick={() => handleDeleteEmployee(employee.id)}
+                              variant="outline"
+                              size="sm"
+                              className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700 w-full sm:w-auto"
+                            >
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Excluir
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1960,133 +1975,38 @@ export default function AdminDashboard() {
           <TabsContent value="sculptures" className="space-y-6">
             <Card className="modern-card">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-6 h-6 text-[#F59E0B]" />
-                      <div>
-                        <CardTitle className="text-2xl font-bold">Esculturas Cadastradas</CardTitle>
-                        <CardDescription>
-                          Gerencie as esculturas do parque • Total: {sculptures.length} esculturas
-                        </CardDescription>
-                      </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-2 rounded-lg">
+                      <Package className="w-6 h-6 text-white" />
                     </div>
-                    <div className="flex-1 max-w-md">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <Input
-                          type="text"
-                          placeholder="Buscar escultura por nome..."
-                          value={sculptureSearchQuery}
-                          onChange={(e) => setSculptureSearchQuery(e.target.value)}
-                          className="pl-10 h-10 bg-gray-50 border-gray-200 focus:bg-white"
-                        />
-                      </div>
-                    </div>
+                    <CardTitle className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                      Esculturas Cadastradas
+                    </CardTitle>
                   </div>
-                  <Button
-                    onClick={() => setShowCreateSculpture(true)}
-                    className="bg-gradient-to-r from-[#F59E0B] to-[#1ed5bb] hover:from-[#F59E0B]/90 hover:to-[#1ed5bb]/90 text-white"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Nova Escultura
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1 sm:w-64">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        type="text"
+                        placeholder="Buscar escultura por nome..."
+                        value={sculptureSearchQuery}
+                        onChange={(e) => setSculptureSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <Button
+                      onClick={() => setShowCreateSculpture(true)}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white w-10 h-10 flex items-center justify-center flex-shrink-0"
+                      title="Nova Escultura"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {filteredSculptures.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                    {sculptureSearchQuery ? (
-                      <>
-                        <p>Nenhuma escultura encontrada com "{sculptureSearchQuery}".</p>
-                        <p className="text-sm">Tente outro termo de busca.</p>
-                      </>
-                    ) : (
-                      <>
-                        <p>Nenhuma escultura cadastrada ainda.</p>
-                        <p className="text-sm">Clique em "Nova Escultura" para começar.</p>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  filteredSculptures.map((sculpture) => (
-                    <div
-                      key={sculpture.id}
-                      className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 to-orange-100 border-2 border-amber-200">
-                          {sculpture.image_url && !sculpture.image_url.includes("placeholder.svg") ? (
-                            <img
-                              src={sculpture.image_url || "/placeholder.svg"}
-                              alt={sculpture.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                console.log(
-                                  "[v0] Image failed to load for sculpture:",
-                                  sculpture.name,
-                                  "URL:",
-                                  sculpture.image_url,
-                                )
-                                e.currentTarget.style.display = "none"
-                                e.currentTarget.parentElement!.innerHTML =
-                                  `<div class="w-full h-full flex items-center justify-center"><svg class="w-10 h-10 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></div>`
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="w-10 h-10 text-amber-400" />
-                              <span className="sr-only">Sem imagem</span>
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-lg">{sculpture.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Código: ESC{String(sculpture.code).padStart(3, "0")}
-                          </p>
-                          <p className="text-xs text-muted-foreground line-clamp-1">{sculpture.description}</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            handleEditSculpture(sculpture) // Use handleEditSculpture to set editing state
-                          }}
-                          className="bg-transparent hover:bg-blue-50"
-                        >
-                          <Pencil className="w-4 h-4 mr-1" />
-                          Editar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteSculpture(sculpture.id)}
-                          className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          Excluir
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePrintQRCode(sculpture)}
-                          className="bg-transparent hover:bg-amber-50 text-amber-600 hover:text-amber-700"
-                        >
-                          <QrCode className="w-4 h-4 mr-1" />
-                          QR Code
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </CardContent>
             </Card>
 
-            {/* START: Reformatted create sculpture form to match edit form style */}
             {showCreateSculpture && (
               <Card className="modern-card border-2 border-green-500">
                 <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
@@ -2140,13 +2060,13 @@ export default function AdminDashboard() {
                               return
                             }
 
+                            console.log("[v0] Image file selected for new sculpture:", file.name, "Size:", file.size)
                             setImageFile(file)
-                            console.log("[v0] Image file selected:", file.name, "Size:", file.size, "bytes")
 
+                            // Create preview
                             const reader = new FileReader()
                             reader.onloadend = () => {
                               setImagePreview(reader.result as string)
-                              console.log("[v0] Image preview generated")
                             }
                             reader.readAsDataURL(file)
                           }
@@ -2155,22 +2075,22 @@ export default function AdminDashboard() {
                       />
                       <Button
                         type="button"
-                        variant="outline"
                         onClick={() => document.getElementById("create-sculpture-image-input")?.click()}
-                        className="w-full max-w-md"
+                        className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium py-3 px-6 rounded-lg shadow-md"
                       >
-                        <Upload className="w-4 h-4 mr-2" />
-                        {imageFile ? "Alterar Imagem" : "Selecionar Imagem"}
+                        <Upload className="w-5 h-5 mr-2" />
+                        {imageFile ? `Trocar Imagem (${imageFile.name})` : "Selecionar Imagem"}
                       </Button>
                       {imageFile && (
-                        <p className="text-sm text-green-600 font-medium">
-                          ✓ {imageFile.name} ({Math.round(imageFile.size / 1024)} KB)
+                        <p className="text-sm text-green-600 font-medium flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4" />
+                          {imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)
                         </p>
                       )}
                     </div>
                   </div>
 
-                  {/* Name Field */}
+                  {/* Name Input */}
                   <div className="space-y-2">
                     <Label htmlFor="sculpture-name" className="text-base font-semibold">
                       Nome da Escultura
@@ -2180,11 +2100,11 @@ export default function AdminDashboard() {
                       value={newSculpture.name}
                       onChange={(e) => setNewSculpture({ ...newSculpture, name: e.target.value })}
                       placeholder="Ex: Coluna de Cristal"
-                      className="text-base"
+                      className="text-base py-6"
                     />
                   </div>
 
-                  {/* Description Field */}
+                  {/* Description Input */}
                   <div className="space-y-2">
                     <Label htmlFor="sculpture-description" className="text-base font-semibold">
                       Descrição
@@ -2193,13 +2113,12 @@ export default function AdminDashboard() {
                       id="sculpture-description"
                       value={newSculpture.description}
                       onChange={(e) => setNewSculpture({ ...newSculpture, description: e.target.value })}
-                      placeholder="Descreva a escultura, seus detalhes e características..."
-                      rows={3}
-                      className="text-base"
+                      placeholder="Descreva a escultura..."
+                      className="min-h-[120px] text-base"
                     />
                   </div>
 
-                  {/* Curiosity Field */}
+                  {/* Curiosity Input */}
                   <div className="space-y-2">
                     <Label htmlFor="sculpture-curiosity" className="text-base font-semibold">
                       Curiosidade
@@ -2208,9 +2127,8 @@ export default function AdminDashboard() {
                       id="sculpture-curiosity"
                       value={newSculpture.curiosity}
                       onChange={(e) => setNewSculpture({ ...newSculpture, curiosity: e.target.value })}
-                      placeholder="Compartilhe curiosidades interessantes sobre a escultura..."
-                      rows={3}
-                      className="text-base"
+                      placeholder="Conte uma curiosidade sobre a escultura..."
+                      className="min-h-[100px] text-base"
                     />
                   </div>
 
@@ -2218,17 +2136,17 @@ export default function AdminDashboard() {
                   <div className="flex gap-3 pt-4">
                     <Button
                       onClick={handleCreateSculpture}
-                      disabled={uploadingImage}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-6 text-base"
+                      disabled={loading}
+                      className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-6 text-base"
                     >
-                      {uploadingImage ? (
+                      {loading ? (
                         <>
-                          <span className="animate-spin mr-2">⏳</span>
-                          Enviando imagem...
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          Salvando...
                         </>
                       ) : (
                         <>
-                          <Plus className="w-5 h-5 mr-2" />
+                          <Save className="w-5 h-5 mr-2" />
                           Criar Escultura
                         </>
                       )}
@@ -2237,19 +2155,114 @@ export default function AdminDashboard() {
                       variant="outline"
                       onClick={() => {
                         setShowCreateSculpture(false)
+                        setNewSculpture({ name: "", description: "", curiosity: "" })
                         setImageFile(null)
                         setImagePreview(null)
-                        setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
                       }}
-                      className="px-8 py-6 text-base font-semibold"
+                      disabled={loading}
+                      className="px-8 py-6 text-base"
                     >
+                      <X className="w-5 h-5 mr-2" />
                       Cancelar
                     </Button>
                   </div>
                 </CardContent>
               </Card>
             )}
-            {/* END: Reformatted create sculpture form to match edit form style */}
+
+            <Card className="modern-card">
+              <CardContent className="space-y-4">
+                {filteredSculptures.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                    {sculptureSearchQuery ? (
+                      <>
+                        <p>Nenhuma escultura encontrada com "{sculptureSearchQuery}".</p>
+                        <p className="text-sm">Tente outro termo de busca.</p>
+                      </>
+                    ) : (
+                      <>
+                        <p>Nenhuma escultura cadastrada ainda.</p>
+                        <p className="text-sm">Clique em "+" para começar.</p>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  filteredSculptures.map((sculpture) => (
+                    <div
+                      key={sculpture.id}
+                      className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 to-orange-100 border-2 border-amber-200">
+                          {sculpture.image_url && !sculpture.image_url.includes("placeholder.svg") ? (
+                            <img
+                              src={sculpture.image_url || "/placeholder.svg"}
+                              alt={sculpture.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.log(
+                                  "[v0] Image failed to load for sculpture:",
+                                  sculpture.name,
+                                  "URL:",
+                                  sculpture.image_url,
+                                )
+                                e.currentTarget.style.display = "none"
+                                e.currentTarget.parentElement!.innerHTML =
+                                  `<div class="w-full h-full flex items-center justify-center"><svg class="w-10 h-10 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></div>`
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-10 h-10 text-amber-400" />
+                              <span className="sr-only">Sem imagem</span>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-lg">{sculpture.name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Código: ESC{String(sculpture.code).padStart(3, "0")}
+                          </p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">{sculpture.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            handleEditSculpture(sculpture)
+                          }}
+                          className="bg-transparent hover:bg-blue-50 w-full sm:w-auto"
+                        >
+                          <Pencil className="w-4 h-4 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteSculpture(sculpture.id)}
+                          className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700 w-full sm:w-auto"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Excluir
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePrintQRCode(sculpture)}
+                          className="bg-transparent hover:bg-amber-50 text-amber-600 hover:text-amber-700 w-full sm:w-auto"
+                        >
+                          <Printer className="w-4 h-4 mr-1" />
+                          QR Code
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
 
             {/* Edit Sculpture Modal */}
             {editingSculpture && (
