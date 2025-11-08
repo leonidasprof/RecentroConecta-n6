@@ -76,10 +76,39 @@ export default function RecentroConecta() {
   useEffect(() => {
     const loadParkStatus = async () => {
       const supabase = getSupabase()
-      const { data, error } = await supabase.from("park_settings").select("is_open").limit(1).single()
+      const { data, error } = await supabase
+        .from("park_settings")
+        .select("is_open, opening_time, closing_time")
+        .limit(1)
+        .single()
 
       if (data && !error) {
-        setParkOpen(data.is_open)
+        const now = new Date()
+        const currentHours = now.getHours()
+        const currentMinutes = now.getMinutes()
+        const currentTimeInMinutes = currentHours * 60 + currentMinutes
+
+        let isWithinHours = true
+
+        if (data.opening_time && data.closing_time) {
+          const [openHour, openMin] = data.opening_time.split(":").map(Number)
+          const [closeHour, closeMin] = data.closing_time.split(":").map(Number)
+
+          const openingTimeInMinutes = openHour * 60 + openMin
+          const closingTimeInMinutes = closeHour * 60 + closeMin
+
+          isWithinHours = currentTimeInMinutes >= openingTimeInMinutes && currentTimeInMinutes < closingTimeInMinutes
+
+          console.log("[v0] Park hours check:", {
+            currentTime: `${currentHours}:${currentMinutes}`,
+            openingTime: data.opening_time,
+            closingTime: data.closing_time,
+            isWithinHours,
+            isOpenInDB: data.is_open,
+          })
+        }
+
+        setParkOpen(data.is_open && isWithinHours)
       } else {
         const savedStatus = localStorage.getItem("parkStatus")
         if (savedStatus !== null) {
@@ -91,25 +120,6 @@ export default function RecentroConecta() {
     loadParkStatus()
 
     const interval = setInterval(loadParkStatus, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    const checkParkHours = () => {
-      const now = new Date()
-      const hours = now.getHours()
-      const minutes = now.getMinutes()
-      const currentTime = hours * 60 + minutes // Convert to minutes
-      const closingTime = 16 * 60 + 40 // 16:40 in minutes
-
-      if (currentTime >= closingTime) {
-        setParkOpen(false)
-      }
-    }
-
-    checkParkHours()
-    const interval = setInterval(checkParkHours, 60000) // Check every minute
-
     return () => clearInterval(interval)
   }, [])
 

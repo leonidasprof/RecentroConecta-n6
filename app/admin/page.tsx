@@ -1889,23 +1889,33 @@ export default function AdminDashboard() {
                       className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
                     >
                       <div className="flex items-center gap-4">
+                        {/* CHANGE STARTS HERE */}
                         <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 to-orange-100 border-2 border-amber-200">
-                          {sculpture.image_url ? (
+                          {sculpture.image_url && !sculpture.image_url.includes("placeholder.svg") ? (
                             <img
                               src={sculpture.image_url || "/placeholder.svg"}
                               alt={sculpture.name}
                               className="w-full h-full object-cover"
                               onError={(e) => {
-                                console.log("[v0] Image failed to load:", sculpture.image_url)
-                                e.currentTarget.src = `/placeholder.svg?height=80&width=80&query=${encodeURIComponent(sculpture.name)}`
+                                console.log(
+                                  "[v0] Image failed to load for sculpture:",
+                                  sculpture.name,
+                                  "URL:",
+                                  sculpture.image_url,
+                                )
+                                e.currentTarget.style.display = "none"
+                                e.currentTarget.parentElement!.innerHTML =
+                                  `<div class="w-full h-full flex items-center justify-center"><svg class="w-10 h-10 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></div>`
                               }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <Package className="w-10 h-10 text-amber-400" />
+                              <span className="sr-only">Sem imagem</span>
                             </div>
                           )}
                         </div>
+                        {/* CHANGE ENDS HERE */}
                         <div>
                           <h4 className="font-semibold text-lg">{sculpture.name}</h4>
                           <p className="text-sm text-muted-foreground">
