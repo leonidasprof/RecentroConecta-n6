@@ -57,19 +57,51 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
   const [visitors, setVisitors] = useState<Visitor[]>([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
   const [generatedBookingId, setGeneratedBookingId] = useState<string>("")
 
-  const filteredPartners = partners.filter((partner) => partner.type === selectedPartnerType)
+  const filteredPartners = selectedPartnerType
+    ? partners.filter((partner) => {
+        const match = partner.organization === selectedPartnerType
+        console.log(`[v0] Partner ${partner.name} (${partner.organization}) matches ${selectedPartnerType}:`, match)
+        return match
+      })
+    : []
+
+  console.log("[v0] Selected partner type:", selectedPartnerType)
+  console.log("[v0] Filtered partners count:", filteredPartners.length)
+  console.log(
+    "[v0] Filtered partners:",
+    filteredPartners.map((p) => p.name),
+  )
 
   useEffect(() => {
     const loadPartners = async () => {
       console.log("[v0] Loading partners...")
       const supabase = getSupabase()
+
+      console.log("[v0] Supabase client created, fetching from partners table...")
       const { data, error } = await supabase.from("partners").select("*")
 
-      if (data && !error) {
+      if (error) {
+        console.error("[v0] Error loading partners:", error)
+        console.error("[v0] Error details:", JSON.stringify(error, null, 2))
+        return
+      }
+
+      if (data) {
         console.log("[v0] Loaded partners:", data)
+        console.log("[v0] Number of partners:", data.length)
+
+        // Log partners by type
+        const partnersByType = data.reduce((acc: any, partner: any) => {
+          const type = partner.organization || "unknown"
+          if (!acc[type]) acc[type] = []
+          acc[type].push(partner.name)
+          return acc
+        }, {})
+        console.log("[v0] Partners by type:", partnersByType)
+
         setPartners(data)
       } else {
-        console.error("[v0] Error loading partners:", error)
+        console.log("[v0] No partner data returned")
       }
     }
 
@@ -482,6 +514,17 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                         onClick={() => {
                           setSelectedPartner(partner.id.toString())
                           console.log("[v0] Selected partner:", partner.name)
+                          setResponsibleData({
+                            ...responsibleData,
+                            name: partner.name || "",
+                            email: partner.email || "",
+                            phone: partner.phone || "",
+                          })
+                          console.log("[v0] Auto-filled responsible data:", {
+                            name: partner.name,
+                            email: partner.email,
+                            phone: partner.phone,
+                          })
                           setStep(2)
                         }}
                         variant="outline"
@@ -613,6 +656,14 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                   <Mail className="w-5 h-5" />
                   Dados do Responsável
                 </h3>
+                {isPartner && selectedPartner && (
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <p className="text-sm text-blue-700">
+                      ℹ️ Os dados abaixo foram preenchidos automaticamente com as informações do parceiro cadastrado.
+                      Você pode alterá-los se necessário.
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <Label htmlFor="resp-name">Nome Completo</Label>
