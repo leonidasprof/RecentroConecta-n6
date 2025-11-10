@@ -220,7 +220,8 @@ export default function AdminDashboard() {
     name: "",
     description: "",
     curiosity: "",
-    imageUrl: "", // This will be used for preview URL, not the actual uploaded file
+    sculpture_number: "", // Added sculpture_number field
+    imageUrl: "",
   })
   const [editingSculpture, setEditingSculpture] = useState<any>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -901,6 +902,7 @@ export default function AdminDashboard() {
           name: newSculpture.name,
           description: newSculpture.description,
           curiosity: newSculpture.curiosity,
+          sculpture_number: newSculpture.sculpture_number,
           image_url: imageUrl,
         }),
       })
@@ -924,7 +926,13 @@ export default function AdminDashboard() {
       console.log("[v0] handleCreateSculpture: Current sculptures count AFTER reload:", sculptures.length)
 
       // Reset form
-      setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
+      setNewSculpture({
+        name: "",
+        description: "",
+        curiosity: "",
+        sculpture_number: "",
+        imageUrl: "",
+      })
       setImageFile(null)
       setImagePreview(null)
       setShowCreateSculpture(false)
@@ -947,6 +955,7 @@ export default function AdminDashboard() {
       name: sculpture.name,
       description: sculpture.description,
       curiosity: sculpture.curiosity,
+      sculpture_number: sculpture.sculpture_number || "", // Ensure sculpture_number is handled
       imageUrl: sculpture.image_url,
     })
     setImageFile(null) // Clear previous file when editing
@@ -989,6 +998,7 @@ export default function AdminDashboard() {
           name: newSculpture.name,
           description: newSculpture.description,
           curiosity: newSculpture.curiosity,
+          sculpture_number: newSculpture.sculpture_number, // Include sculpture_number
           image_url: imageUrl,
         }),
       })
@@ -1006,7 +1016,7 @@ export default function AdminDashboard() {
 
       // Reset form
       setEditingSculpture(null)
-      setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
+      setNewSculpture({ name: "", description: "", curiosity: "", sculpture_number: "", imageUrl: "" })
       setImageFile(null)
       setImagePreview(null)
     } catch (error: any) {
@@ -1038,7 +1048,7 @@ export default function AdminDashboard() {
 
   const handleCancelEdit = () => {
     setEditingSculpture(null)
-    setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" }) // Resetting newSculpture as well
+    setNewSculpture({ name: "", description: "", curiosity: "", sculpture_number: "", imageUrl: "" }) // Resetting newSculpture as well
     setImageFile(null) // Clear image file when cancelling edit
     setImagePreview(null) // Clear preview when cancelling edit
   }
@@ -1114,6 +1124,65 @@ export default function AdminDashboard() {
   const filteredSculptures = sculptures.filter((sculpture) =>
     sculpture.name.toLowerCase().includes(sculptureSearchQuery.toLowerCase()),
   )
+
+  const handleExportSculpturesPDF = async () => {
+    try {
+      const { jsPDF } = await import("jspdf")
+      const doc = new jsPDF()
+
+      doc.setFontSize(18)
+      doc.text("Inventário de Esculturas - Recentro Conecta", 14, 20)
+
+      doc.setFontSize(10)
+      doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 14, 28)
+      doc.text(`Total de Esculturas: ${sculptures.length}`, 14, 34)
+
+      let yPos = 45
+
+      sculptures.forEach((sculpture, index) => {
+        if (yPos > 270) {
+          doc.addPage()
+          yPos = 20
+        }
+
+        doc.setFontSize(12)
+        doc.setFont("helvetica", "bold")
+        doc.text(`${index + 1}. ${sculpture.name}`, 14, yPos)
+        yPos += 6
+
+        doc.setFontSize(10)
+        doc.setFont("helvetica", "normal")
+
+        if (sculpture.sculpture_number) {
+          doc.text(`Número: ${sculpture.sculpture_number}`, 20, yPos)
+          yPos += 5
+        }
+
+        doc.text(`Código: ${sculpture.code || "N/A"}`, 20, yPos)
+        yPos += 5
+
+        if (sculpture.description) {
+          const descLines = doc.splitTextToSize(`Descrição: ${sculpture.description}`, 170)
+          doc.text(descLines, 20, yPos)
+          yPos += descLines.length * 5
+        }
+
+        if (sculpture.curiosity) {
+          const curLines = doc.splitTextToSize(`Curiosidade: ${sculpture.curiosity}`, 170)
+          doc.text(curLines, 20, yPos)
+          yPos += curLines.length * 5
+        }
+
+        yPos += 5
+      })
+
+      doc.save(`inventario-esculturas-${new Date().toISOString().split("T")[0]}.pdf`)
+      console.log("[v0] PDF generated successfully")
+    } catch (error) {
+      console.error("[v0] Error generating PDF:", error)
+      alert("Erro ao gerar PDF. Tente novamente.")
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50">
@@ -1985,6 +2054,15 @@ export default function AdminDashboard() {
                     </CardTitle>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      onClick={handleExportSculpturesPDF}
+                      variant="outline"
+                      className="flex items-center gap-2 bg-transparent"
+                      disabled={sculptures.length === 0}
+                    >
+                      <Printer className="w-4 h-4" />
+                      PDF Inventário
+                    </Button>
                     <div className="relative flex-1 sm:w-64">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                       <Input
@@ -2018,6 +2096,17 @@ export default function AdminDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-6">
+                  <div className="space-y-2">
+                    <Label className="text-base font-semibold">Número da Escultura</Label>
+                    <Input
+                      type="text"
+                      placeholder="Ex: 001, 002, etc."
+                      value={newSculpture.sculpture_number}
+                      onChange={(e) => setNewSculpture({ ...newSculpture, sculpture_number: e.target.value })}
+                      className="text-base"
+                    />
+                  </div>
+
                   {/* Image Upload Section */}
                   <div className="space-y-2">
                     <Label className="text-base font-semibold">Imagem da Escultura</Label>
@@ -2155,7 +2244,7 @@ export default function AdminDashboard() {
                       variant="outline"
                       onClick={() => {
                         setShowCreateSculpture(false)
-                        setNewSculpture({ name: "", description: "", curiosity: "" })
+                        setNewSculpture({ name: "", description: "", curiosity: "", sculpture_number: "" })
                         setImageFile(null)
                         setImagePreview(null)
                       }}
@@ -2222,6 +2311,9 @@ export default function AdminDashboard() {
                         <div>
                           <h4 className="font-semibold text-lg">{sculpture.name}</h4>
                           <p className="text-sm text-muted-foreground">
+                            Número: {sculpture.sculpture_number} {/* Display sculpture number */}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
                             Código: ESC{String(sculpture.code).padStart(3, "0")}
                           </p>
                           <p className="text-xs text-muted-foreground line-clamp-1">{sculpture.description}</p>
@@ -2278,7 +2370,13 @@ export default function AdminDashboard() {
                       size="sm"
                       onClick={() => {
                         setEditingSculpture(null)
-                        setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
+                        setNewSculpture({
+                          name: "",
+                          description: "",
+                          curiosity: "",
+                          sculpture_number: "",
+                          imageUrl: "",
+                        })
                         setImageFile(null)
                         setImagePreview(null)
                       }}
@@ -2389,12 +2487,31 @@ export default function AdminDashboard() {
                       className="resize-none"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-sculpture-number" className="text-base font-semibold">
+                      Número da Escultura
+                    </Label>
+                    <Input
+                      id="edit-sculpture-number"
+                      type="text"
+                      placeholder="Ex: 001, 002, etc."
+                      value={newSculpture.sculpture_number}
+                      onChange={(e) => setNewSculpture({ ...newSculpture, sculpture_number: e.target.value })}
+                      className="h-12"
+                    />
+                  </div>
                   <div className="flex justify-end gap-3 pt-4 border-t">
                     <Button
                       variant="outline"
                       onClick={() => {
                         setEditingSculpture(null)
-                        setNewSculpture({ name: "", description: "", curiosity: "", imageUrl: "" })
+                        setNewSculpture({
+                          name: "",
+                          description: "",
+                          curiosity: "",
+                          sculpture_number: "",
+                          imageUrl: "",
+                        })
                         setImageFile(null)
                         setImagePreview(null)
                       }}
