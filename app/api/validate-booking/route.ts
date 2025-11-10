@@ -46,21 +46,26 @@ export async function POST(request: Request) {
 
       await supabase.from("tickets").insert({
         ticket_number: ticketNumber,
-        ticket_type: "agendamento",
-        visitor_type: booking.visitor_type,
+        ticket_type: "scheduled",
+        visitor_type: booking.visitor_type || "group",
         visitor_name: visitor.name,
         visitor_document_type: visitor.document_type,
         visitor_document_number: visitor.document_number,
         visit_date: booking.visit_date,
         visit_time: booking.visit_time,
         number_of_people: 1,
+        qr_code: ticketNumber,
         is_validated: true,
         validated_at: validatedAt,
         validation_history: `Presença confirmada em ${new Date(validatedAt).toLocaleString("pt-BR")} via agendamento ${booking.booking_code}`,
       })
     }
 
-    console.log("[v0] Booking validated successfully with", booking.booking_visitors.length, "tickets created")
+    console.log(
+      "[v0] Booking validated successfully with",
+      booking.booking_visitors.length,
+      "visitors marked as present",
+    )
 
     return NextResponse.json({
       success: true,

@@ -204,7 +204,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
       booking_id: bookingData.id,
       name: visitor.name,
       age: Number.parseInt(visitor.age),
-      document_type: visitor.cpf_rg.length === 11 ? "CPF" : "RG",
+      document_type: visitor.cpf_rg.replace(/\D/g, "").length === 11 ? "CPF" : "RG",
       document_number: visitor.cpf_rg,
     }))
 
@@ -219,6 +219,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
     console.log("[v0] Visitors saved successfully")
 
     try {
+      console.log("[v0] Sending confirmation email...")
       const emailResponse = await fetch("/api/send-confirmation-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -229,6 +230,8 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
 
       if (emailResult.success) {
         console.log("[v0] Confirmation email sent successfully")
+        // Update booking to mark email as sent
+        await supabase.from("bookings").update({ confirmation_sent: true }).eq("id", bookingData.id)
       } else {
         console.error("[v0] Error sending email:", emailResult.error)
       }
@@ -725,10 +728,11 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                     <div className="flex items-start gap-3">
                       <Mail className="w-7 h-7 text-emerald-600 flex-shrink-0 mt-1" />
                       <div className="text-left">
-                        <p className="text-base font-bold text-slate-800 mb-2">E-mail Enviado!</p>
+                        <p className="text-base font-bold text-slate-800 mb-2">✓ Tudo enviado!</p>
                         <p className="text-base text-slate-700 leading-relaxed">
-                          Um e-mail de confirmação com o QR code foi enviado para {responsibleData.email}. Apresente o
-                          QR code na entrada do parque na data e horário agendados.
+                          Um e-mail de confirmação com o QR code e a lista de todos os visitantes foi enviado para{" "}
+                          <strong>{responsibleData.email}</strong>. Apresente o QR code na entrada do parque na data e
+                          horário agendados. Todos os visitantes serão validados automaticamente.
                         </p>
                       </div>
                     </div>

@@ -258,12 +258,12 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
                     window.dispatchEvent(event)
                   }}
                   size="lg"
-                  className="h-20 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                  className="h-20 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
                 >
                   <Users className="w-6 h-6 mr-3" />
                   <div className="text-left">
-                    <div className="font-bold text-lg">Agendamento</div>
-                    <div className="text-sm opacity-90">Para grupos e parceiros</div>
+                    <div className="font-bold text-lg">Agendamento para grupos e parceiros</div>
+                    <div className="text-sm opacity-90">Para grupos e organizações parceiras</div>
                   </div>
                 </Button>
               </div>
