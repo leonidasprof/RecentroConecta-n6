@@ -256,7 +256,7 @@ export default function RecentroConecta() {
                       className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-2"
                     >
                       <QrCode className="w-4 h-4" />
-                      Ingresso Individual
+                      Ingresso
                     </button>
                     <button
                       onClick={() => {
@@ -426,7 +426,7 @@ export default function RecentroConecta() {
               className="h-20 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white modern-button text-base flex items-center justify-center gap-2"
             >
               <QrCode className="w-5 h-5" />
-              Ingresso Individual
+              Ingresso
             </Button>
           </div>
         </div>
@@ -1012,12 +1012,15 @@ export default function RecentroConecta() {
               {!scannerActive && !scannedSculpture && (
                 <>
                   <Button
-                    onClick={() => setScannerActive(true)}
+                    onClick={() => setShowTicketModal(true)}
                     size="lg"
-                    className="w-full bg-gradient-to-r from-cyan-600 to-blue-600"
+                    className="h-16 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
                   >
-                    <QrCode className="w-5 h-5 mr-2" />
-                    Escanear QR Code
+                    <QrCode className="w-6 h-6 mr-3" />
+                    <div className="text-left">
+                      <div className="text-lg">Ingresso</div>
+                      <div className="text-xs opacity-90">Gere seu ingresso digital</div>
+                    </div>
                   </Button>
 
                   <div>

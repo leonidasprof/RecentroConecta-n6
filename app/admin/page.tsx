@@ -1387,20 +1387,20 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-4 mb-8">
+          <div className="flex items-center justify-center gap-4">
             <Image
               src="/images/recentro-logo.png"
               alt="Recentro Logo"
-              width={100}
-              height={100}
-              className="object-contain"
+              width={45}
+              height={45}
+              className="rounded-lg object-contain"
             />
             <Image
-              src="/images/recentro-conecta-logo.png"
-              alt="Recentro Conecta"
-              width={200}
-              height={60}
-              className="object-contain"
+              src="/images/prefeitura-recife-logo.png"
+              alt="Prefeitura Logo"
+              width={45}
+              height={45}
+              className="rounded-lg object-contain bg-white p-1"
             />
           </div>
         </div>
@@ -2255,7 +2255,7 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="sculptures" className="space-y-6">
-            <Card className="modern-card">
+            <Card className="modern-card border-2 border-amber-200">
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -2267,6 +2267,14 @@ export default function AdminDashboard() {
                     </CardTitle>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      onClick={exportSculpturesToPDF}
+                      variant="outline"
+                      className="border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-semibold bg-transparent flex-shrink-0"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      PDF Inventário
+                    </Button>
                     <Input
                       type="text"
                       placeholder="Buscar escultura por nome..."
@@ -2283,14 +2291,6 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
                 </div>
-                <Button
-                  onClick={exportSculpturesToPDF}
-                  variant="outline"
-                  className="border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-semibold bg-transparent"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  PDF Inventário
-                </Button>
               </CardHeader>
             </Card>
 

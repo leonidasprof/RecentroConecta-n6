@@ -262,7 +262,7 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
                 >
                   <Users className="w-6 h-6 mr-3" />
                   <div className="text-left">
-                    <div className="font-bold text-lg">Agendamento para grupos e parceiros</div>
+                    <div className="font-bold text-lg">Ingresso Agendado</div>
                     <div className="text-sm opacity-90">Para grupos e organizações parceiras</div>
                   </div>
                 </Button>
