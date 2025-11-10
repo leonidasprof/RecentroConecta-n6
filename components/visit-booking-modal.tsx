@@ -38,7 +38,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
   const [isPartner, setIsPartner] = useState<boolean | null>(null)
   const [partners, setPartners] = useState<Partner[]>([])
   const [selectedPartner, setSelectedPartner] = useState<string>("")
-
+  const [selectedPartnerType, setSelectedPartnerType] = useState<string>("")
   const [newPartner, setNewPartner] = useState({
     name: "",
     type: "",
@@ -56,6 +56,8 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
   })
   const [visitors, setVisitors] = useState<Visitor[]>([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
   const [generatedBookingId, setGeneratedBookingId] = useState<string>("")
+
+  const filteredPartners = partners.filter((partner) => partner.type === selectedPartnerType)
 
   useEffect(() => {
     const loadPartners = async () => {
@@ -83,6 +85,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
     setStep(1)
     setIsPartner(null)
     setSelectedPartner("")
+    setSelectedPartnerType("")
     setNewPartner({ name: "", type: "", contact: "", email: "", phone: "" })
     setResponsibleData({ name: "", email: "", phone: "", visitDate: "", visitTime: "" })
     setVisitors([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
@@ -305,6 +308,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
     setStep(1)
     setIsPartner(null)
     setSelectedPartner("")
+    setSelectedPartnerType("")
     setNewPartner({ name: "", type: "", contact: "", email: "", phone: "" })
     setResponsibleData({ name: "", email: "", phone: "", visitDate: "", visitTime: "" })
     setVisitors([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
@@ -377,34 +381,109 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
             </div>
           )}
 
-          {step === 1 && isPartner === true && (
+          {step === 1 && isPartner === true && !selectedPartnerType && (
             <div className="space-y-6">
               <Button onClick={() => setIsPartner(null)} variant="ghost" className="mb-4">
                 ← Voltar
               </Button>
 
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <Building2 className="w-5 h-5" />
+                  Selecione o Tipo de Parceiro
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Button
+                    onClick={() => {
+                      setSelectedPartnerType("Escola")
+                      console.log("[v0] Selected partner type: Escola")
+                    }}
+                    variant="outline"
+                    className="h-20 text-lg border-2 hover:bg-emerald-50"
+                  >
+                    Escola
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setSelectedPartnerType("Hotel")
+                      console.log("[v0] Selected partner type: Hotel")
+                    }}
+                    variant="outline"
+                    className="h-20 text-lg border-2 hover:bg-emerald-50"
+                  >
+                    Hotel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setSelectedPartnerType("Agência de Turismo")
+                      console.log("[v0] Selected partner type: Agência de Turismo")
+                    }}
+                    variant="outline"
+                    className="h-20 text-lg border-2 hover:bg-emerald-50"
+                  >
+                    Agência de Turismo
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setSelectedPartnerType("Outro")
+                      console.log("[v0] Selected partner type: Outro")
+                    }}
+                    variant="outline"
+                    className="h-20 text-lg border-2 hover:bg-emerald-50"
+                  >
+                    Outro
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 1 && isPartner === true && selectedPartnerType && (
+            <div className="space-y-6">
+              <Button onClick={() => setSelectedPartnerType("")} variant="ghost" className="mb-4">
+                ← Voltar para tipos de parceiro
+              </Button>
+
               <div className="space-y-4 bg-white/95 rounded-lg p-6">
                 <Label htmlFor="partner-select" className="text-lg font-semibold">
                   <Building2 className="w-5 h-5 inline mr-2" />
-                  Selecione sua Organização/Instituição
+                  Selecione sua Organização - {selectedPartnerType}
                 </Label>
-                {partners.length > 0 ? (
-                  <Select value={selectedPartner} onValueChange={setSelectedPartner}>
+                {filteredPartners.length > 0 ? (
+                  <Select
+                    value={selectedPartner}
+                    onValueChange={(value) => {
+                      setSelectedPartner(value)
+                      console.log("[v0] Selected partner:", value)
+                      // Move to next step after partner selection
+                      setStep(2)
+                    }}
+                  >
                     <SelectTrigger id="partner-select" className="h-12 text-base">
                       <SelectValue placeholder="Escolha sua organização" />
                     </SelectTrigger>
                     <SelectContent>
-                      {partners.map((partner) => (
+                      {filteredPartners.map((partner) => (
                         <SelectItem key={partner.id} value={partner.id.toString()}>
-                          {partner.name} - {partner.type}
+                          {partner.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 ) : (
                   <div className="text-center py-4">
-                    <p className="text-muted-foreground mb-3">Nenhum parceiro cadastrado ainda.</p>
-                    <Button type="button" onClick={() => setIsPartner(false)} variant="outline" className="w-full">
+                    <p className="text-muted-foreground mb-3">
+                      Nenhum parceiro do tipo "{selectedPartnerType}" cadastrado ainda.
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setIsPartner(false)
+                        setNewPartner({ ...newPartner, type: selectedPartnerType })
+                      }}
+                      variant="outline"
+                      className="w-full"
+                    >
                       Cadastrar como novo parceiro
                     </Button>
                   </div>

@@ -366,13 +366,15 @@ export default function RecentroConecta() {
                       </>
                     ) : (
                       <>
-                        <div className="flex items-center justify-center sm:justify-start gap-3 mb-3">
-                          <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-                          <span className="text-xl md:text-2xl lg:text-3xl text-red-600 font-bold">
+                        <div className="flex items-center gap-2 sm:gap-3 justify-center sm:justify-start">
+                          <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500 rounded-full flex-shrink-0"></div>
+                          <span className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-red-600 font-bold text-center sm:text-left">
                             HORÁRIO DE FUNCIONAMENTO ENCERRADO
                           </span>
                         </div>
-                        <p className="text-sm md:text-base text-red-700">O parque está fechado para visitação</p>
+                        <p className="text-sm md:text-base text-red-700 text-center sm:text-left">
+                          O parque está fechado para visitação
+                        </p>
                       </>
                     )}
                   </div>
@@ -1020,6 +1022,18 @@ export default function RecentroConecta() {
                     <div className="text-left">
                       <div className="text-lg">Ingresso</div>
                       <div className="text-xs opacity-90">Gere seu ingresso digital</div>
+                    </div>
+                  </Button>
+
+                  {/* Added QR scanner option to sculpture explorer */}
+                  <Button
+                    onClick={() => setScannerActive(true)}
+                    className="w-full h-16 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                  >
+                    <QrCode className="w-6 h-6 mr-3" />
+                    <div className="text-left">
+                      <div className="text-lg">Escanear QR Code</div>
+                      <div className="text-xs opacity-90">Escaneie o código da escultura</div>
                     </div>
                   </Button>
 
