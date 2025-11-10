@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Scanner } from "@yudiel/react-qr-scanner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,6 +18,14 @@ interface Ticket {
   number_of_people: number
   is_validated: boolean
   validated_at: string | null
+  validation_history: string | null
+}
+
+interface Booking {
+  id: number
+  visit_date: string
+  validated: boolean
+  booking_visitors: { visitor_name: string }[]
 }
 
 export default function ValidarPage() {
@@ -28,6 +36,45 @@ export default function ValidarPage() {
     ticket?: Ticket
   } | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [dailyStats, setDailyStats] = useState({
+    individual: 0,
+    scheduled: 0,
+    total: 0,
+    validated: 0,
+  })
+
+  useEffect(() => {
+    loadDailyStats()
+  }, [])
+
+  const loadDailyStats = async () => {
+    try {
+      const supabase = getSupabase()
+      const today = new Date().toISOString().split("T")[0]
+
+      const { data: tickets } = await supabase.from("tickets").select("*").eq("visit_date", today)
+
+      const { data: bookings } = await supabase
+        .from("bookings")
+        .select("*, booking_visitors(*)")
+        .eq("visit_date", today)
+
+      const individualCount = tickets?.filter((t) => t.ticket_type === "individual").length || 0
+      const scheduledVisitors = bookings?.reduce((sum, b) => sum + (b.booking_visitors?.length || 0), 0) || 0
+      const validatedCount = tickets?.filter((t) => t.is_validated).length || 0
+      const validatedBookings =
+        bookings?.filter((b) => b.validated).reduce((sum, b) => sum + (b.booking_visitors?.length || 0), 0) || 0
+
+      setDailyStats({
+        individual: individualCount,
+        scheduled: scheduledVisitors,
+        total: individualCount + scheduledVisitors,
+        validated: validatedCount + validatedBookings,
+      })
+    } catch (error) {
+      console.error("[v0] Error loading stats:", error)
+    }
+  }
 
   const handleScan = async (detectedCodes: any[]) => {
     if (isProcessing || !detectedCodes || detectedCodes.length === 0) return
@@ -41,7 +88,47 @@ export default function ValidarPage() {
     try {
       const supabase = getSupabase()
 
-      // Find ticket in database
+      if (scannedValue.includes("bookingId=")) {
+        // It's a booking validation URL
+        const urlParams = new URLSearchParams(scannedValue.split("?")[1])
+        const bookingId = urlParams.get("bookingId")
+
+        if (!bookingId) {
+          setResult({
+            success: false,
+            message: "QR code inválido. Não foi possível identificar o agendamento.",
+          })
+          setScanning(false)
+          setIsProcessing(false)
+          return
+        }
+
+        // Call validate booking API
+        const response = await fetch("/api/validate-booking", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookingId }),
+        })
+
+        const data = await response.json()
+
+        if (data.success) {
+          setResult({
+            success: true,
+            message: `Agendamento validado! ${data.visitors} visitante(s) registrado(s) com presença confirmada.`,
+          })
+        } else {
+          setResult({
+            success: false,
+            message: data.error || "Erro ao validar agendamento.",
+          })
+        }
+
+        setScanning(false)
+        setIsProcessing(false)
+        return
+      }
+
       const { data: ticket, error: fetchError } = await supabase
         .from("tickets")
         .select("*")
@@ -58,7 +145,6 @@ export default function ValidarPage() {
         return
       }
 
-      // Check if already validated
       if (ticket.is_validated) {
         setResult({
           success: false,
@@ -70,7 +156,6 @@ export default function ValidarPage() {
         return
       }
 
-      // Check if ticket is still valid (within 24 hours)
       const visitDate = new Date(ticket.visit_date)
       const now = new Date()
       const hoursDiff = (now.getTime() - visitDate.getTime()) / (1000 * 60 * 60)
@@ -86,12 +171,15 @@ export default function ValidarPage() {
         return
       }
 
-      // Validate ticket
+      const validatedAt = new Date().toISOString()
+      const validationHistory = `Presença confirmada em ${new Date(validatedAt).toLocaleString("pt-BR")} - Entrada validada`
+
       const { error: updateError } = await supabase
         .from("tickets")
         .update({
           is_validated: true,
-          validated_at: new Date().toISOString(),
+          validated_at: validatedAt,
+          validation_history: validationHistory,
         })
         .eq("id", ticket.id)
 
@@ -106,11 +194,10 @@ export default function ValidarPage() {
         return
       }
 
-      // Success
       setResult({
         success: true,
-        message: "Ingresso validado com sucesso!",
-        ticket: { ...ticket, is_validated: true, validated_at: new Date().toISOString() },
+        message: "Ingresso validado com sucesso! Presença registrada.",
+        ticket: { ...ticket, is_validated: true, validated_at: validatedAt, validation_history: validationHistory },
       })
       setScanning(false)
     } catch (error) {
@@ -247,6 +334,11 @@ export default function ValidarPage() {
                         <p className="text-xs text-slate-500">
                           <strong>ID:</strong> {result.ticket.ticket_number}
                         </p>
+                        {result.ticket.validation_history && (
+                          <p className="text-xs text-slate-500">
+                            <strong>Histórico:</strong> {result.ticket.validation_history}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -260,6 +352,33 @@ export default function ValidarPage() {
             )}
           </CardContent>
         </Card>
+
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="p-4 text-center">
+              <p className="text-sm text-blue-600 font-semibold">Individual</p>
+              <p className="text-2xl font-bold text-blue-700">{dailyStats.individual}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-purple-50 border-purple-200">
+            <CardContent className="p-4 text-center">
+              <p className="text-sm text-purple-600 font-semibold">Agendados</p>
+              <p className="text-2xl font-bold text-purple-700">{dailyStats.scheduled}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-green-50 border-green-200">
+            <CardContent className="p-4 text-center">
+              <p className="text-sm text-green-600 font-semibold">Total Hoje</p>
+              <p className="text-2xl font-bold text-green-700">{dailyStats.total}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-amber-50 border-amber-200">
+            <CardContent className="p-4 text-center">
+              <p className="text-sm text-amber-600 font-semibold">Validados</p>
+              <p className="text-2xl font-bold text-amber-700">{dailyStats.validated}</p>
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="mt-6 p-4 bg-white rounded-xl shadow-md">
           <h4 className="font-semibold text-slate-800 mb-2">Instruções:</h4>

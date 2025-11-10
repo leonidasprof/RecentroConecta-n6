@@ -143,14 +143,16 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
   }
 
   const handleSubmitBooking = async () => {
+    console.log("[v0] Submitting booking...")
+
     if (isPartner === false) {
       const registered = await handleRegisterNewPartner()
       if (!registered) return
     }
 
     const supabase = getSupabase()
-    const bookingId = `BKG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    setGeneratedBookingId(bookingId)
+    const bookingCode = `BKG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    setGeneratedBookingId(bookingCode)
 
     let partnerInfo = null
     if (isPartner && selectedPartner) {
@@ -168,29 +170,74 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
     }
 
     const bookingPayload = {
-      booking_number: bookingId,
+      booking_code: bookingCode,
       responsible_name: responsibleData.name,
       responsible_email: responsibleData.email,
       responsible_phone: responsibleData.phone,
       visit_date: responsibleData.visitDate,
-      visit_time: responsibleData.visitTime, // Added visit time
-      number_of_people: visitors.length,
-      qr_code: bookingId,
-      is_validated: false,
-      visitors: visitors,
-      ...partnerInfo, // Add partner info if exists
+      visit_time: responsibleData.visitTime,
+      total_visitors: visitors.length,
+      visitor_type: "group",
+      qr_code: bookingCode,
+      confirmation_sent: false,
+      validated: false,
+      ...partnerInfo,
     }
 
-    const { error } = await supabase.from("bookings").insert(bookingPayload)
+    console.log("[v0] Creating booking with payload:", bookingPayload)
 
-    if (error) {
-      console.error("[v0] Error saving booking:", error)
+    const { data: bookingData, error: bookingError } = await supabase
+      .from("bookings")
+      .insert(bookingPayload)
+      .select()
+      .single()
+
+    if (bookingError || !bookingData) {
+      console.error("[v0] Error saving booking:", bookingError)
       alert("Erro ao criar agendamento. Tente novamente.")
       return
     }
 
-    console.log("[v0] Booking created:", bookingId)
-    setStep(3) // Move to confirmation step
+    console.log("[v0] Booking created successfully:", bookingData)
+
+    const visitorsPayload = visitors.map((visitor) => ({
+      booking_id: bookingData.id,
+      name: visitor.name,
+      age: Number.parseInt(visitor.age),
+      document_type: visitor.cpf_rg.length === 11 ? "CPF" : "RG",
+      document_number: visitor.cpf_rg,
+    }))
+
+    const { error: visitorsError } = await supabase.from("booking_visitors").insert(visitorsPayload)
+
+    if (visitorsError) {
+      console.error("[v0] Error saving visitors:", visitorsError)
+      alert("Erro ao salvar visitantes. Tente novamente.")
+      return
+    }
+
+    console.log("[v0] Visitors saved successfully")
+
+    try {
+      const emailResponse = await fetch("/api/send-confirmation-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: bookingData.id }),
+      })
+
+      const emailResult = await emailResponse.json()
+
+      if (emailResult.success) {
+        console.log("[v0] Confirmation email sent successfully")
+      } else {
+        console.error("[v0] Error sending email:", emailResult.error)
+      }
+    } catch (emailError) {
+      console.error("[v0] Error calling email API:", emailError)
+    }
+
+    console.log("[v0] Moving to confirmation step")
+    setStep(3)
   }
 
   const generateBookingPDF = () => {

@@ -19,12 +19,14 @@ import {
   Languages,
   Landmark,
   BookOpen,
+  X,
+  Package,
+  ScanLine as Scanner,
 } from "lucide-react"
 import TicketModal from "@/components/ticket-modal"
 import LoginModal from "@/components/login-modal"
 import VisitBookingModal from "@/components/visit-booking-modal"
 import FeedbackModal from "@/components/feedback-modal"
-import SculptureScanner from "@/components/sculpture-scanner"
 import AboutModal from "@/components/about-modal"
 import { getSupabase } from "@/lib/supabase"
 
@@ -35,6 +37,7 @@ export default function RecentroConecta() {
   const [showBookingModal, setShowBookingModal] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
+  const [showAboutModal, setShowAboutModal] = useState(false) // Added missing state
   const [visitorCount, setVisitorCount] = useState(127543)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [language, setLanguage] = useState("pt")
@@ -42,8 +45,8 @@ export default function RecentroConecta() {
   const [showSculptureScanner, setShowSculptureScanner] = useState(false)
   const [scannedSculpture, setScannedSculpture] = useState<any>(null)
   const [uploadedPhoto, setUploadedPhoto] = useState<File | null>(null)
-
-  const [showAboutModal, setShowAboutModal] = useState(false)
+  const [allSculptures, setAllSculptures] = useState<any[]>([])
+  const [scannerActive, setScannerActive] = useState(false)
 
   const bannerImages = [
     "/images/banner.jpeg",
@@ -123,17 +126,61 @@ export default function RecentroConecta() {
     return () => clearInterval(interval)
   }, [])
 
-  const handleSculptureScan = async (sculptureCode: string) => {
-    const supabase = getSupabase()
-    const { data, error } = await supabase.from("sculptures").select("*").eq("code", sculptureCode).single()
+  useEffect(() => {
+    if (showSculptureScanner) {
+      loadSculptures()
+    }
+  }, [showSculptureScanner])
 
-    if (data && !error) {
+  useEffect(() => {
+    const handleOpenVisitBooking = () => {
+      setShowBookingModal(true)
+    }
+
+    window.addEventListener("openVisitBooking", handleOpenVisitBooking)
+
+    return () => {
+      window.removeEventListener("openVisitBooking", handleOpenVisitBooking)
+    }
+  }, [])
+
+  const loadSculptures = async () => {
+    try {
+      const supabase = getSupabase()
+      const { data, error } = await supabase
+        .from("sculptures")
+        .select("*")
+        .order("sculpture_number", { ascending: true })
+
+      if (error) throw error
+      setAllSculptures(data || [])
+    } catch (error) {
+      console.error("[v0] Error loading sculptures:", error)
+    }
+  }
+
+  const handleSculptureScan = async (detectedCodes: any[]) => {
+    if (!detectedCodes || detectedCodes.length === 0) return
+
+    const scannedValue = detectedCodes[0]?.rawValue
+    if (!scannedValue) return
+
+    // Extract sculpture ID from URL
+    const match = scannedValue.match(/escultura\/([^/?]+)/)
+    if (!match) return
+
+    const sculptureId = match[1]
+
+    try {
+      const supabase = getSupabase()
+      const { data, error } = await supabase.from("sculptures").select("*").eq("id", sculptureId).single()
+
+      if (error) throw error
+
       setScannedSculpture(data)
-      setShowSculptureScanner(false)
-      setCurrentScreen("sculpture")
-    } else {
-      console.error("[v0] Sculpture not found:", sculptureCode)
-      alert("Escultura não encontrada. Verifique o código QR.")
+      setScannerActive(false)
+    } catch (error) {
+      console.error("[v0] Error fetching sculpture:", error)
     }
   }
 
@@ -144,6 +191,11 @@ export default function RecentroConecta() {
     // TODO: Upload to Vercel Blob or Supabase Storage
     console.log("[v0] Photo uploaded:", file.name)
     alert("Foto salva com sucesso! Obrigado por compartilhar sua experiência.")
+  }
+
+  const viewSculpture = (sculpture: any) => {
+    setScannedSculpture(sculpture)
+    setScannerActive(false)
   }
 
   const renderHomeScreen = () => (
@@ -218,7 +270,7 @@ export default function RecentroConecta() {
                     </button>
                     <button
                       onClick={() => {
-                        setShowAboutModal(true)
+                        setShowAboutModal(true) // Corrected this line
                         setShowMenu(false)
                       }}
                       className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-2"
@@ -932,13 +984,141 @@ export default function RecentroConecta() {
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
       <VisitBookingModal isOpen={showBookingModal} onClose={() => setShowBookingModal(false)} />
       <FeedbackModal isOpen={showFeedbackModal} onClose={() => setShowFeedbackModal(false)} />
-      <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} />
+      <AboutModal isOpen={showAboutModal} onClose={() => setShowAboutModal(false)} /> {/* Corrected this line */}
       {showSculptureScanner && (
-        <SculptureScanner
-          onScan={handleSculptureScan}
-          onImageUpload={handlePhotoUpload}
-          onClose={() => setShowSculptureScanner(false)}
-        />
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <Card className="w-full max-w-4xl my-8">
+            <CardHeader className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl flex items-center gap-2">
+                  <Camera className="w-6 h-6" />
+                  Explorar Esculturas
+                </CardTitle>
+                <Button
+                  onClick={() => {
+                    setShowSculptureScanner(false)
+                    setScannerActive(false)
+                    setScannedSculpture(null)
+                  }}
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/20"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              {!scannerActive && !scannedSculpture && (
+                <>
+                  <Button
+                    onClick={() => setScannerActive(true)}
+                    size="lg"
+                    className="w-full bg-gradient-to-r from-cyan-600 to-blue-600"
+                  >
+                    <QrCode className="w-5 h-5 mr-2" />
+                    Escanear QR Code
+                  </Button>
+
+                  <div>
+                    <h3 className="font-semibold text-lg mb-4">Todas as Esculturas</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {allSculptures.map((sculpture) => (
+                        <Card
+                          key={sculpture.id}
+                          className="cursor-pointer hover:shadow-lg transition-shadow"
+                          onClick={() => viewSculpture(sculpture)}
+                        >
+                          <div className="aspect-square relative">
+                            {sculpture.image_url ? (
+                              <Image
+                                src={sculpture.image_url || "/placeholder.svg"}
+                                alt={sculpture.name}
+                                fill
+                                className="object-cover rounded-t-lg"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-cyan-100 to-blue-100 flex items-center justify-center">
+                                <Package className="w-12 h-12 text-cyan-600" />
+                              </div>
+                            )}
+                          </div>
+                          <CardContent className="p-2">
+                            <p className="text-xs font-semibold truncate">#{sculpture.sculpture_number}</p>
+                            <p className="text-xs text-muted-foreground truncate">{sculpture.name}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {scannerActive && !scannedSculpture && (
+                <div className="space-y-4">
+                  <div className="relative rounded-xl overflow-hidden border-4 border-cyan-500">
+                    <Scanner
+                      onScan={handleSculptureScan}
+                      constraints={{ facingMode: "environment" }}
+                      styles={{
+                        container: {
+                          width: "100%",
+                          paddingTop: "100%",
+                        },
+                      }}
+                    />
+                  </div>
+                  <Button onClick={() => setScannerActive(false)} variant="outline" className="w-full">
+                    Voltar
+                  </Button>
+                </div>
+              )}
+
+              {scannedSculpture && (
+                <div className="space-y-4">
+                  <Card className="border-2 border-cyan-500">
+                    <CardContent className="p-6 space-y-4">
+                      {scannedSculpture.image_url && (
+                        <div className="relative w-full aspect-video rounded-lg overflow-hidden">
+                          <Image
+                            src={scannedSculpture.image_url || "/placeholder.svg"}
+                            alt={scannedSculpture.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm text-cyan-600 font-semibold">
+                          Escultura #{scannedSculpture.sculpture_number}
+                        </p>
+                        <h3 className="text-2xl font-bold text-cyan-700">{scannedSculpture.name}</h3>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm text-muted-foreground">Descrição:</p>
+                        <p className="text-sm">{scannedSculpture.description}</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm text-muted-foreground">Curiosidade:</p>
+                        <p className="text-sm">{scannedSculpture.curiosity}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Button
+                    onClick={() => {
+                      setScannedSculpture(null)
+                      setScannerActive(false)
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Ver Outras Esculturas
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </>
   )

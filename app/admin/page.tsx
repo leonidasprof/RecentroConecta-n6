@@ -59,13 +59,13 @@ import {
   Save,
   CheckCircle2,
   Upload,
-  Search,
   Printer,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { getSupabase } from "@/lib/supabase"
 import QrScanner from "@/components/qr-scanner" // Imported QrScanner
+import jsPDF from "jspdf" // Import jsPDF
 
 // Added helper function for partner icons
 const getPartnerIcon = (organization: string) => {
@@ -243,6 +243,13 @@ export default function AdminDashboard() {
   const [sculptureSearchQuery, setSculptureSearchQuery] = useState("")
 
   const [loading, setLoading] = useState(false) // Added for general loading state
+
+  const [showVisitorListExport, setShowVisitorListExport] = useState(false)
+  const [selectedExportDate, setSelectedExportDate] = useState(new Date().toISOString().split("T")[0])
+  const [showBookingsSearch, setShowBookingsSearch] = useState(false)
+  const [bookingsSearchDate, setBookingsSearchDate] = useState("")
+  const [searchedBookings, setSearchedBookings] = useState<any[]>([])
+  const [showBookingsList, setShowBookingsList] = useState(false) // Added to control modal visibility
 
   useEffect(() => {
     const employeeData = localStorage.getItem("employee")
@@ -1125,6 +1132,91 @@ export default function AdminDashboard() {
     sculpture.name.toLowerCase().includes(sculptureSearchQuery.toLowerCase()),
   )
 
+  const exportSculpturesToPDF = () => {
+    console.log("[v0] Exporting sculptures to PDF...")
+
+    const doc = new jsPDF() // jsPDF variable is now declared
+
+    // Title
+    doc.setFontSize(20)
+    doc.setFont("helvetica", "bold")
+    doc.text("INVENTÁRIO DE ESCULTURAS", 105, 20, { align: "center" })
+
+    doc.setFontSize(12)
+    doc.setFont("helvetica", "normal")
+    doc.text("Parque das Esculturas Francisco Brennand", 105, 28, { align: "center" })
+    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 105, 35, { align: "center" })
+
+    doc.setFontSize(10)
+    doc.text(`Total de Esculturas: ${sculptures.length}`, 105, 42, { align: "center" })
+
+    let yPosition = 55
+
+    sculptures.forEach((sculpture, index) => {
+      // Check if we need a new page
+      if (yPosition > 250) {
+        doc.addPage()
+        yPosition = 20
+      }
+
+      // Sculpture header
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "bold")
+      doc.text(`${index + 1}. ${sculpture.sculpture_number || "N/A"} - ${sculpture.name}`, 20, yPosition)
+      yPosition += 7
+
+      // Code
+      doc.setFontSize(10)
+      doc.setFont("helvetica", "normal")
+      doc.text(`Código: ${sculpture.code}`, 25, yPosition)
+      yPosition += 6
+
+      // Description
+      if (sculpture.description) {
+        doc.setFont("helvetica", "italic")
+        const descLines = doc.splitTextToSize(`Descrição: ${sculpture.description}`, 165)
+        doc.text(descLines, 25, yPosition)
+        yPosition += descLines.length * 5 + 2
+      }
+
+      // Curiosity
+      if (sculpture.curiosity) {
+        doc.setFont("helvetica", "normal")
+        const curiosityLines = doc.splitTextToSize(`Curiosidade: ${sculpture.curiosity}`, 165)
+        doc.text(curiosityLines, 25, yPosition)
+        yPosition += curiosityLines.length * 5 + 2
+      }
+
+      // Image URL
+      if (sculpture.image_url) {
+        doc.setFontSize(8)
+        doc.setTextColor(100, 100, 100)
+        doc.text(`Imagem: ${sculpture.image_url.substring(0, 60)}...`, 25, yPosition)
+        doc.setTextColor(0, 0, 0)
+        yPosition += 5
+      }
+
+      // Separator line
+      doc.setDrawColor(200, 200, 200)
+      doc.line(20, yPosition, 190, yPosition)
+      yPosition += 8
+    })
+
+    // Footer
+    const pageCount = doc.internal.pages.length - 1
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.setFontSize(8)
+      doc.setTextColor(150, 150, 150)
+      doc.text(`Página ${i} de ${pageCount} - Inventário gerado em ${new Date().toLocaleString("pt-BR")}`, 105, 285, {
+        align: "center",
+      })
+    }
+
+    doc.save(`inventario-esculturas-${new Date().toISOString().split("T")[0]}.pdf`)
+    console.log("[v0] PDF exported successfully")
+  }
+
   const handleExportSculpturesPDF = async () => {
     try {
       const { jsPDF } = await import("jspdf")
@@ -1184,6 +1276,90 @@ export default function AdminDashboard() {
     }
   }
 
+  const exportDailyVisitorList = async () => {
+    try {
+      const supabase = getSupabase()
+
+      const { data: tickets, error } = await supabase
+        .from("tickets")
+        .select("*")
+        .eq("visit_date", selectedExportDate)
+        .eq("is_validated", true)
+        .order("validated_at", { ascending: true })
+
+      if (error) {
+        console.error("[v0] Error fetching visitors:", error)
+        alert("Erro ao buscar visitantes")
+        return
+      }
+
+      const doc = new jsPDF()
+
+      doc.setFontSize(18)
+      doc.text("Relatório de Visitantes", 105, 20, { align: "center" })
+      doc.setFontSize(12)
+      doc.text(`Data: ${new Date(selectedExportDate).toLocaleDateString("pt-BR")}`, 105, 28, { align: "center" })
+
+      let y = 40
+
+      tickets?.forEach((ticket, index) => {
+        if (y > 270) {
+          doc.addPage()
+          y = 20
+        }
+
+        doc.setFontSize(10)
+        doc.text(`${index + 1}. ${ticket.visitor_name}`, 20, y)
+        y += 6
+        doc.setFontSize(9)
+        doc.text(`Contato: ${ticket.visitor_phone || ticket.visitor_email || "N/A"}`, 25, y)
+        y += 5
+        doc.text(`Tipo: ${ticket.visitor_type} | Origem: ${ticket.visitor_origin || "N/A"}`, 25, y)
+        y += 5
+        doc.text(`Documento: ${ticket.visitor_document_type} ${ticket.visitor_document_number}`, 25, y)
+        y += 5
+        doc.text(`Validado em: ${new Date(ticket.validated_at).toLocaleString("pt-BR")}`, 25, y)
+        y += 8
+      })
+
+      doc.save(`visitantes-${selectedExportDate}.pdf`)
+    } catch (error) {
+      console.error("[v0] Error generating PDF:", error)
+      alert("Erro ao gerar PDF")
+    }
+  }
+
+  const searchBookings = async () => {
+    if (!bookingsSearchDate) {
+      alert("Selecione uma data para pesquisar")
+      return
+    }
+
+    try {
+      const supabase = getSupabase()
+
+      const { data, error } = await supabase
+        .from("bookings")
+        .select(`
+          *,
+          booking_visitors (*)
+        `)
+        .eq("visit_date", bookingsSearchDate)
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("[v0] Error searching bookings:", error)
+        alert("Erro ao pesquisar agendamentos")
+        return
+      }
+
+      setSearchedBookings(data || [])
+    } catch (error) {
+      console.error("[v0] Error:", error)
+      alert("Erro ao pesquisar")
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50">
       {/* Header */}
@@ -1211,20 +1387,20 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-3">
+          <div className="flex items-center justify-center gap-4 mb-8">
             <Image
               src="/images/recentro-logo.png"
-              alt="Recentro"
-              width={35}
-              height={35}
-              className="rounded-lg md:w-[45px] md:h-[45px]"
+              alt="Recentro Logo"
+              width={100}
+              height={100}
+              className="object-contain"
             />
             <Image
               src="/images/recentro-conecta-logo.png"
               alt="Recentro Conecta"
-              width={35}
-              height={35}
-              className="rounded-lg md:w-[45px] md:h-[45px]"
+              width={200}
+              height={60}
+              className="object-contain"
             />
           </div>
         </div>
@@ -1315,7 +1491,7 @@ export default function AdminDashboard() {
 
               <Card className="modern-card border-l-4 border-l-[#16A34A]">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Via Escolas</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Via Parceiros</CardTitle>
                   <School className="w-5 h-5 text-[#16A34A]" />
                 </CardHeader>
                 <CardContent>
@@ -1625,6 +1801,43 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+              <h3 className="text-lg font-semibold">Relatórios Diários</h3>
+              <Button onClick={() => setShowVisitorListExport(true)} className="bg-green-600 hover:bg-green-700">
+                <Download className="w-4 h-4 mr-2" />
+                Exportar Lista de Visitantes
+              </Button>
+            </div>
+
+            {showVisitorListExport && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <Card className="w-full max-w-md">
+                  <CardHeader>
+                    <CardTitle>Exportar Lista de Visitantes</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label>Selecione a Data</Label>
+                      <Input
+                        type="date"
+                        value={selectedExportDate}
+                        onChange={(e) => setSelectedExportDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={exportDailyVisitorList} className="flex-1">
+                        <Download className="w-4 h-4 mr-2" />
+                        Gerar PDF
+                      </Button>
+                      <Button onClick={() => setShowVisitorListExport(false)} variant="outline">
+                        Cancelar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </TabsContent>
 
           {/* Employees Tab */}
@@ -2054,34 +2267,30 @@ export default function AdminDashboard() {
                     </CardTitle>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      onClick={handleExportSculpturesPDF}
-                      variant="outline"
-                      className="flex items-center gap-2 bg-transparent"
-                      disabled={sculptures.length === 0}
-                    >
-                      <Printer className="w-4 h-4" />
-                      PDF Inventário
-                    </Button>
-                    <div className="relative flex-1 sm:w-64">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        type="text"
-                        placeholder="Buscar escultura por nome..."
-                        value={sculptureSearchQuery}
-                        onChange={(e) => setSculptureSearchQuery(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
+                    <Input
+                      type="text"
+                      placeholder="Buscar escultura por nome..."
+                      value={sculptureSearchQuery}
+                      onChange={(e) => setSculptureSearchQuery(e.target.value)}
+                      className="h-10 w-full sm:w-64"
+                    />
                     <Button
                       onClick={() => setShowCreateSculpture(true)}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white w-10 h-10 flex items-center justify-center flex-shrink-0"
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white flex-shrink-0 w-10 h-10 p-0"
                       title="Nova Escultura"
                     >
                       <Plus className="w-5 h-5" />
                     </Button>
                   </div>
                 </div>
+                <Button
+                  onClick={exportSculpturesToPDF}
+                  variant="outline"
+                  className="border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-semibold bg-transparent"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  PDF Inventário
+                </Button>
               </CardHeader>
             </Card>
 
@@ -2701,38 +2910,72 @@ export default function AdminDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="w-6 h-6 text-[#F97316]" />
-                  <span className="text-2xl font-bold">Últimos Agendamentos</span>
+                  <span className="text-2xl font-bold">Pesquisar Agendamentos</span>
                 </CardTitle>
-                <CardDescription>Lista dos 5 agendamentos mais recentes</CardDescription>
+                <CardDescription>Procure agendamentos por data para validação.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {bookings.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">Nenhum agendamento registrado ainda</p>
-                  ) : (
-                    bookings.map((booking) => (
-                      <div
-                        key={booking.id}
-                        className="p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg border border-orange-200 cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => setSelectedBooking(booking)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-lg">{booking.organization || "Sem organização"}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              Data: {new Date(booking.visit_date).toLocaleDateString("pt-BR")} • Horário:{" "}
-                              {booking.visit_time} • Pessoas: {booking.number_of_people}
-                            </p>
-                            <p className="text-sm text-muted-foreground">Responsável: {booking.responsible_name}</p>
-                          </div>
-                          <Button variant="outline" size="sm" className="bg-transparent hover:bg-orange-50">
-                            Ver Detalhes
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                <div className="flex flex-col sm:flex-row gap-2 mb-6">
+                  <div className="flex-1">
+                    <Label>Data da Visita</Label>
+                    <Input
+                      type="date"
+                      value={bookingsSearchDate}
+                      onChange={(e) => setBookingsSearchDate(e.target.value)}
+                    />
+                  </div>
+                  <Button onClick={searchBookings} className="mt-6">
+                    Pesquisar
+                  </Button>
                 </div>
+
+                {bookingsSearchDate && searchedBookings.length === 0 && (
+                  <p className="text-center text-muted-foreground py-8">
+                    Nenhum agendamento encontrado para esta data.
+                  </p>
+                )}
+
+                {searchedBookings.length > 0 && (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {searchedBookings.map((booking) => (
+                      <Card key={booking.id} className="border-l-4 border-l-blue-500">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <p className="font-semibold">{booking.organization || "Sem organização"}</p>
+                              <p className="text-sm text-muted-foreground">{booking.number_of_people} visitantes</p>
+                              <p className="text-sm">
+                                Data: {new Date(booking.visit_date).toLocaleDateString("pt-BR")} às {booking.visit_time}
+                              </p>
+                              <p className="text-sm">Responsável: {booking.responsible_name}</p>
+                              <p className="text-sm">
+                                Código: <span className="font-mono font-semibold">{booking.booking_number}</span>
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              {booking.validated_at ? ( // Assuming 'validated_at' signifies validation
+                                <div className="flex items-center gap-1 text-green-600">
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  <span className="text-sm font-semibold">Validado</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1 text-amber-600">
+                                  <AlertCircle className="w-4 h-4" />
+                                  <span className="text-sm font-semibold">Pendente</span>
+                                </div>
+                              )}
+                              {booking.validated_at && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {new Date(booking.validated_at).toLocaleString("pt-BR")}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

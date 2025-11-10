@@ -29,6 +29,10 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
     visitorType: "",
     origin: "",
     neighborhood: "",
+    email: "",
+    phone: "",
+    documentType: "CPF",
+    documentNumber: "",
   })
   const [groupData, setGroupData] = useState({
     partnerName: "",
@@ -62,14 +66,20 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
           ticket_type: ticketType === "individual" ? "individual" : "scheduled",
           visitor_name: ticketType === "individual" ? ticketData.name : groupData.partnerName,
           visitor_type: ticketType === "individual" ? ticketData.visitorType : groupData.partnerType,
-          visitor_email: null,
-          visitor_phone: null,
+          visitor_email: ticketType === "individual" ? ticketData.email : null,
+          visitor_phone: ticketType === "individual" ? ticketData.phone : null,
+          visitor_document_type: ticketType === "individual" ? ticketData.documentType : null,
+          visitor_document_number: ticketType === "individual" ? ticketData.documentNumber : null,
           visitor_origin: ticketData.origin || null,
           visit_date: new Date().toISOString().split("T")[0],
           number_of_people: ticketType === "individual" ? 1 : Number.parseInt(groupData.visitorCount),
-          qr_code: ticketId, // Store ticket ID as QR code value
+          qr_code: ticketId,
           is_validated: false,
+          validated_at: null,
+          validation_history: null,
         }
+
+        console.log("[v0] Creating ticket with payload:", ticketPayload)
 
         const { error } = await supabase.from("tickets").insert(ticketPayload)
 
@@ -78,6 +88,8 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
           alert("Erro ao gerar ingresso. Tente novamente.")
           return
         }
+
+        console.log("[v0] Ticket created successfully:", ticketId)
       }
       setStep(step + 1)
     }
@@ -92,6 +104,10 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
       visitorType: "",
       origin: "",
       neighborhood: "",
+      email: "",
+      phone: "",
+      documentType: "CPF",
+      documentNumber: "",
     })
     setGroupData({
       partnerName: "",
@@ -136,24 +152,27 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
           doc.text(`Tipo: ${ticketData.visitorType === "local" ? "Morador Local" : "Turista"}`, 20, 155)
           if (ticketData.origin) doc.text(`Origem: ${ticketData.origin}`, 20, 165)
           if (ticketData.neighborhood) doc.text(`Bairro: ${ticketData.neighborhood}`, 20, 165)
+          doc.text(`E-mail: ${ticketData.email}`, 20, 175)
+          doc.text(`Telefone: ${ticketData.phone}`, 20, 185)
+          doc.text(`Documento: ${ticketData.documentType} ${ticketData.documentNumber}`, 20, 195)
         } else {
           doc.text(`Parceiro: ${groupData.partnerName}`, 20, 135)
           doc.text(`Tipo: ${groupData.partnerType}`, 20, 145)
           doc.text(`Visitantes: ${groupData.visitorCount}`, 20, 155)
         }
 
-        doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 20, 175)
-        doc.text(`ID: ${generatedTicketId}`, 20, 185)
+        doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 20, 210)
+        doc.text(`ID: ${generatedTicketId}`, 20, 220)
 
         doc.setFontSize(10)
         doc.setFont("helvetica", "normal")
-        doc.text("Válido por 24 horas", 20, 195)
+        doc.text("Válido por 24 horas", 20, 230)
 
         doc.setFontSize(11)
         doc.setFont("helvetica", "bold")
-        doc.text("Explore as esculturas no aplicativo!", 20, 210)
+        doc.text("Explore as esculturas no aplicativo!", 20, 245)
         doc.setFont("helvetica", "normal")
-        doc.text("Conecte-se às obras apontando sua câmera para o QR code em cada escultura.", 20, 220, {
+        doc.text("Conecte-se às obras apontando sua câmera para o QR code em cada escultura.", 20, 255, {
           maxWidth: 170,
         })
 
@@ -215,34 +234,38 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
         <CardContent className="p-6">
           {step === 1 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => handleTypeSelection("individual")}
-                  className="group relative overflow-hidden p-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl border-4 border-blue-300 hover:border-blue-500 hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:-translate-y-1"
+              <div className="flex flex-col gap-3">
+                <Button
+                  onClick={() => {
+                    setTicketType("individual")
+                    setStep(2)
+                  }}
+                  size="lg"
+                  className="h-20 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white"
                 >
-                  <div className="absolute inset-0 bg-white/10 group-hover:bg-white/20 transition-colors" />
-                  <div className="relative z-10">
-                    <div className="w-14 h-14 mx-auto mb-3 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <User className="w-8 h-8 text-white" />
-                    </div>
-                    <h4 className="font-bold text-white mb-2 text-lg">Individual</h4>
-                    <p className="text-sm text-white/90 font-medium">Visitante individual</p>
+                  <User className="w-6 h-6 mr-3" />
+                  <div className="text-left">
+                    <div className="font-bold text-lg">Ingresso Individual</div>
+                    <div className="text-sm opacity-90">Para visitantes individuais</div>
                   </div>
-                </button>
+                </Button>
 
-                <button
-                  onClick={() => handleTypeSelection("group")}
-                  className="group relative overflow-hidden p-6 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl border-4 border-emerald-300 hover:border-emerald-500 hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:-translate-y-1"
+                <Button
+                  onClick={() => {
+                    onClose()
+                    // Trigger visit booking modal from parent
+                    const event = new CustomEvent("openVisitBooking")
+                    window.dispatchEvent(event)
+                  }}
+                  size="lg"
+                  className="h-20 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
                 >
-                  <div className="absolute inset-0 bg-white/10 group-hover:bg-white/20 transition-colors" />
-                  <div className="relative z-10">
-                    <div className="w-14 h-14 mx-auto mb-3 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Users className="w-8 h-8 text-white" />
-                    </div>
-                    <h4 className="font-bold text-white mb-2 text-lg">Agendamento</h4>
-                    <p className="text-sm text-white/90 font-medium">Grupos e parceiros</p>
+                  <Users className="w-6 h-6 mr-3" />
+                  <div className="text-left">
+                    <div className="font-bold text-lg">Agendamento</div>
+                    <div className="text-sm opacity-90">Para grupos e parceiros</div>
                   </div>
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -262,6 +285,67 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
                     className="mt-2 h-12 text-base border-2 focus:border-blue-500"
                     placeholder="Nome completo"
                   />
+                </div>
+
+                <div>
+                  <Label htmlFor="email" className="text-base font-semibold text-slate-700">
+                    E-mail
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={ticketData.email}
+                    onChange={(e) => setTicketData({ ...ticketData, email: e.target.value })}
+                    className="mt-2 h-12 text-base border-2 focus:border-blue-500"
+                    placeholder="seu@email.com"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="phone" className="text-base font-semibold text-slate-700">
+                    Telefone
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={ticketData.phone}
+                    onChange={(e) => setTicketData({ ...ticketData, phone: e.target.value })}
+                    className="mt-2 h-12 text-base border-2 focus:border-blue-500"
+                    placeholder="(81) 99999-9999"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="documentType" className="text-base font-semibold text-slate-700">
+                      Tipo de Documento
+                    </Label>
+                    <Select
+                      value={ticketData.documentType}
+                      onValueChange={(value) => setTicketData({ ...ticketData, documentType: value })}
+                    >
+                      <SelectTrigger className="mt-2 h-12 text-base border-2 focus:border-blue-500">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CPF">CPF</SelectItem>
+                        <SelectItem value="RG">RG</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="documentNumber" className="text-base font-semibold text-slate-700">
+                      {ticketData.documentType}
+                    </Label>
+                    <Input
+                      id="documentNumber"
+                      value={ticketData.documentNumber}
+                      onChange={(e) => setTicketData({ ...ticketData, documentNumber: e.target.value })}
+                      className="mt-2 h-12 text-base border-2 focus:border-blue-500"
+                      placeholder={ticketData.documentType === "CPF" ? "000.000.000-00" : "00.000.000-0"}
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -344,7 +428,14 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
                 </Button>
                 <Button
                   onClick={handleNext}
-                  disabled={!ticketData.name || !ticketData.age || !ticketData.visitorType}
+                  disabled={
+                    !ticketData.name ||
+                    !ticketData.age ||
+                    !ticketData.email ||
+                    !ticketData.phone ||
+                    !ticketData.documentNumber ||
+                    !ticketData.visitorType
+                  }
                   className="flex-1 h-14 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white text-lg font-semibold modern-button disabled:opacity-50"
                 >
                   Gerar Ingresso
@@ -509,6 +600,15 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
                             <strong>Bairro:</strong> {ticketData.neighborhood}
                           </p>
                         )}
+                        <p className="text-base">
+                          <strong>E-mail:</strong> {ticketData.email}
+                        </p>
+                        <p className="text-base">
+                          <strong>Telefone:</strong> {ticketData.phone}
+                        </p>
+                        <p className="text-base">
+                          <strong>Documento:</strong> {ticketData.documentType} {ticketData.documentNumber}
+                        </p>
                       </>
                     ) : (
                       <>
