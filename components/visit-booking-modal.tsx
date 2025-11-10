@@ -390,48 +390,69 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
               <div className="space-y-4">
                 <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                   <Building2 className="w-5 h-5" />
-                  Selecione o Tipo de Parceiro
+                  Qual tipo de parceiro você é?
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button
-                    onClick={() => {
-                      setSelectedPartnerType("Escola")
-                      console.log("[v0] Selected partner type: Escola")
-                    }}
-                    variant="outline"
-                    className="h-20 text-lg border-2 hover:bg-emerald-50"
-                  >
-                    Escola
-                  </Button>
+                <p className="text-slate-600 text-sm">Selecione o tipo de organização que representa:</p>
+
+                <div className="grid grid-cols-1 gap-3">
                   <Button
                     onClick={() => {
                       setSelectedPartnerType("Hotel")
                       console.log("[v0] Selected partner type: Hotel")
                     }}
                     variant="outline"
-                    className="h-20 text-lg border-2 hover:bg-emerald-50"
+                    className="h-16 text-lg border-2 hover:bg-emerald-50 hover:border-emerald-500 justify-start px-6"
                   >
+                    <Building2 className="w-5 h-5 mr-3" />
                     Hotel
                   </Button>
+
                   <Button
                     onClick={() => {
-                      setSelectedPartnerType("Agência de Turismo")
-                      console.log("[v0] Selected partner type: Agência de Turismo")
+                      setSelectedPartnerType("Escola")
+                      console.log("[v0] Selected partner type: Escola")
                     }}
                     variant="outline"
-                    className="h-20 text-lg border-2 hover:bg-emerald-50"
+                    className="h-16 text-lg border-2 hover:bg-emerald-50 hover:border-emerald-500 justify-start px-6"
                   >
+                    <Users className="w-5 h-5 mr-3" />
+                    Escola
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      setSelectedPartnerType("ONG")
+                      console.log("[v0] Selected partner type: ONG")
+                    }}
+                    variant="outline"
+                    className="h-16 text-lg border-2 hover:bg-emerald-50 hover:border-emerald-500 justify-start px-6"
+                  >
+                    <Users className="w-5 h-5 mr-3" />
+                    ONG
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      setSelectedPartnerType("Agencia Turismo")
+                      console.log("[v0] Selected partner type: Agencia Turismo")
+                    }}
+                    variant="outline"
+                    className="h-16 text-lg border-2 hover:bg-emerald-50 hover:border-emerald-500 justify-start px-6"
+                  >
+                    <Building2 className="w-5 h-5 mr-3" />
                     Agência de Turismo
                   </Button>
+
                   <Button
                     onClick={() => {
-                      setSelectedPartnerType("Outro")
-                      console.log("[v0] Selected partner type: Outro")
+                      setSelectedPartnerType("Empresa")
+                      console.log("[v0] Selected partner type: Empresa (eventos)")
                     }}
                     variant="outline"
-                    className="h-20 text-lg border-2 hover:bg-emerald-50"
+                    className="h-16 text-lg border-2 hover:bg-emerald-50 hover:border-emerald-500 justify-start px-6"
                   >
-                    Outro
+                    <Building2 className="w-5 h-5 mr-3" />
+                    Empresa (eventos)
                   </Button>
                 </div>
               </div>
@@ -444,35 +465,37 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                 ← Voltar para tipos de parceiro
               </Button>
 
-              <div className="space-y-4 bg-white/95 rounded-lg p-6">
-                <Label htmlFor="partner-select" className="text-lg font-semibold">
-                  <Building2 className="w-5 h-5 inline mr-2" />
-                  Selecione sua Organização - {selectedPartnerType}
-                </Label>
+              <div className="space-y-4">
+                <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
+                  <h3 className="text-lg font-bold text-emerald-800 flex items-center gap-2">
+                    <Building2 className="w-5 h-5" />
+                    {selectedPartnerType}
+                  </h3>
+                  <p className="text-sm text-emerald-700 mt-1">Selecione sua organização da lista abaixo:</p>
+                </div>
+
                 {filteredPartners.length > 0 ? (
-                  <Select
-                    value={selectedPartner}
-                    onValueChange={(value) => {
-                      setSelectedPartner(value)
-                      console.log("[v0] Selected partner:", value)
-                      // Move to next step after partner selection
-                      setStep(2)
-                    }}
-                  >
-                    <SelectTrigger id="partner-select" className="h-12 text-base">
-                      <SelectValue placeholder="Escolha sua organização" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredPartners.map((partner) => (
-                        <SelectItem key={partner.id} value={partner.id.toString()}>
-                          {partner.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {filteredPartners.map((partner) => (
+                      <Button
+                        key={partner.id}
+                        onClick={() => {
+                          setSelectedPartner(partner.id.toString())
+                          console.log("[v0] Selected partner:", partner.name)
+                          setStep(2)
+                        }}
+                        variant="outline"
+                        className="w-full h-auto py-4 px-6 text-left border-2 hover:bg-emerald-50 hover:border-emerald-500 flex flex-col items-start gap-1"
+                      >
+                        <div className="font-semibold text-base">{partner.name}</div>
+                        <div className="text-sm text-slate-500">{partner.email}</div>
+                      </Button>
+                    ))}
+                  </div>
                 ) : (
-                  <div className="text-center py-4">
-                    <p className="text-muted-foreground mb-3">
+                  <div className="text-center py-8 bg-slate-50 rounded-lg border-2 border-dashed">
+                    <Building2 className="w-12 h-12 mx-auto text-slate-400 mb-3" />
+                    <p className="text-slate-600 mb-4">
                       Nenhum parceiro do tipo "{selectedPartnerType}" cadastrado ainda.
                     </p>
                     <Button
@@ -481,10 +504,10 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                         setIsPartner(false)
                         setNewPartner({ ...newPartner, type: selectedPartnerType })
                       }}
-                      variant="outline"
-                      className="w-full"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
-                      Cadastrar como novo parceiro
+                      <Plus className="w-4 h-4 mr-2" />
+                      Cadastrar minha organização
                     </Button>
                   </div>
                 )}
@@ -755,25 +778,27 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
             <div className="space-y-6">
               <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 animate-fade-in">
                 <div className="text-center space-y-4">
-                  <div className="flex justify-center items-center gap-6 mb-4">
-                    <Image
-                      src="/images/recentro-logo.png"
-                      alt="Recentro"
-                      width={60}
-                      height={60}
-                      className="rounded-lg"
-                    />
-                    <Image
-                      src="/images/prefeitura-recife-logo.png"
-                      alt="Prefeitura do Recife"
-                      width={60}
-                      height={60}
-                      className="rounded-lg"
-                    />
+                  <div className="w-20 h-20 mx-auto bg-emerald-500 rounded-full flex items-center justify-center animate-bounce">
+                    <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
                   </div>
 
-                  <h3 className="text-2xl font-bold text-slate-800">AGENDAMENTO CONFIRMADO</h3>
-                  <p className="text-lg text-emerald-600 font-semibold">Parque de Esculturas Francisco Brennand</p>
+                  <h3 className="text-3xl font-bold text-slate-800">Seu agendamento foi concluído com sucesso!</h3>
+
+                  <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white p-6 rounded-xl shadow-lg">
+                    <Mail className="w-8 h-8 mx-auto mb-3" />
+                    <p className="text-lg font-semibold mb-2">E-mail de Confirmação Enviado</p>
+                    <p className="text-emerald-50 text-sm">
+                      O responsável pela parceria receberá um e-mail em <strong>{responsibleData.email}</strong> com
+                      todas as informações referentes à visita, incluindo:
+                    </p>
+                    <ul className="text-left text-sm text-emerald-50 mt-3 space-y-1 max-w-md mx-auto">
+                      <li>• QR Code para validação na entrada</li>
+                      <li>• Lista completa de todos os visitantes</li>
+                      <li>• Data, horário e informações da visita</li>
+                    </ul>
+                  </div>
 
                   <div className="w-32 h-32 mx-auto bg-white border-4 border-emerald-500 rounded-2xl flex items-center justify-center shadow-lg p-2">
                     <QRCodeSVG id="booking-qr-code" value={generatedBookingId} size={112} level="H" />
@@ -785,9 +810,6 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                     </p>
                     <p className="text-base">
                       <strong>E-mail:</strong> {responsibleData.email}
-                    </p>
-                    <p className="text-base">
-                      <strong>Telefone:</strong> {responsibleData.phone}
                     </p>
                     <p className="text-base">
                       <strong>Data da Visita:</strong> {new Date(responsibleData.visitDate).toLocaleDateString("pt-BR")}
@@ -802,20 +824,6 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                       <strong>ID:</strong> {generatedBookingId}
                     </p>
                   </div>
-
-                  <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-5 rounded-xl border-2 border-emerald-200 mt-4">
-                    <div className="flex items-start gap-3">
-                      <Mail className="w-7 h-7 text-emerald-600 flex-shrink-0 mt-1" />
-                      <div className="text-left">
-                        <p className="text-base font-bold text-slate-800 mb-2">✓ Tudo enviado!</p>
-                        <p className="text-base text-slate-700 leading-relaxed">
-                          Um e-mail de confirmação com o QR code e a lista de todos os visitantes foi enviado para{" "}
-                          <strong>{responsibleData.email}</strong>. Apresente o QR code na entrada do parque na data e
-                          horário agendados. Todos os visitantes serão validados automaticamente.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -825,7 +833,7 @@ export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModal
                   className="w-full h-14 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-lg font-semibold"
                 >
                   <Download className="w-5 h-5 mr-2" />
-                  Baixar Agendamento PDF
+                  Baixar Comprovante PDF
                 </Button>
 
                 <Button
