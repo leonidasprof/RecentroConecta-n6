@@ -2,14 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { X, Download, Mail, Calendar, Plus, Trash2, Users, Building2 } from "lucide-react"
-import Image from "next/image"
-import { QRCodeSVG } from "qrcode.react"
-import jsPDF from "jspdf"
+import { Textarea } from "@/components/ui/textarea"
+import { X, CheckCircle2 } from "lucide-react"
 import { getSupabase } from "@/lib/supabase"
 
 interface VisitBookingModalProps {
@@ -17,895 +15,507 @@ interface VisitBookingModalProps {
   onClose: () => void
 }
 
-interface Visitor {
+interface Partner {
   id: string
   name: string
-  age: string
-  cpf_rg: string
-  contact: string
-}
-
-interface Partner {
-  id: number
-  name: string
-  type: string
-  contact: string
+  organization: string
   email: string
+  phone: string
 }
 
 export default function VisitBookingModal({ isOpen, onClose }: VisitBookingModalProps) {
-  const [step, setStep] = useState(1)
-  const [isPartner, setIsPartner] = useState<boolean | null>(null)
+  const [step, setStep] = useState<"form" | "success">("form")
+  const [isExistingPartner, setIsExistingPartner] = useState<boolean | null>(null)
   const [partners, setPartners] = useState<Partner[]>([])
-  const [selectedPartner, setSelectedPartner] = useState<string>("")
-  const [selectedPartnerType, setSelectedPartnerType] = useState<string>("")
-  const [newPartner, setNewPartner] = useState({
-    name: "",
-    type: "",
-    contact: "",
-    email: "",
-    phone: "",
-  })
+  const [loadingPartners, setLoadingPartners] = useState(false)
 
-  const [responsibleData, setResponsibleData] = useState({
-    name: "",
+  // Form data
+  const [formData, setFormData] = useState({
+    // Partner/Organization info
+    organizationType: "",
+    organizationName: "",
+    responsibleName: "",
     email: "",
     phone: "",
+
+    // Visit details
     visitDate: "",
-    visitTime: "", // Added visit time field
+    visitTime: "",
+    numberOfVisitors: "",
+    visitType: "guided", // guided or free
+
+    // Accessibility
+    signLanguage: false,
+    audioDescription: false,
+
+    // Optional
+    eventType: "",
+    observations: "",
   })
-  const [visitors, setVisitors] = useState<Visitor[]>([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
-  const [generatedBookingId, setGeneratedBookingId] = useState<string>("")
 
-  const filteredPartners = selectedPartnerType
-    ? partners.filter((partner) => {
-        const match = partner.organization === selectedPartnerType
-        console.log(`[v0] Partner ${partner.name} (${partner.organization}) matches ${selectedPartnerType}:`, match)
-        return match
-      })
-    : []
-
-  console.log("[v0] Selected partner type:", selectedPartnerType)
-  console.log("[v0] Filtered partners count:", filteredPartners.length)
-  console.log(
-    "[v0] Filtered partners:",
-    filteredPartners.map((p) => p.name),
-  )
-
+  // Load partners from database
   useEffect(() => {
-    const loadPartners = async () => {
-      console.log("[v0] Loading partners...")
-      const supabase = getSupabase()
+    if (isOpen && isExistingPartner === true) {
+      loadPartners()
+    }
+  }, [isOpen, isExistingPartner])
 
-      console.log("[v0] Supabase client created, fetching from partners table...")
-      const { data, error } = await supabase.from("partners").select("*")
+  const loadPartners = async () => {
+    setLoadingPartners(true)
+    console.log("[v0] Loading partners for selection...")
+
+    try {
+      const supabase = getSupabase()
+      const { data, error } = await supabase.from("partners").select("*").order("name", { ascending: true })
 
       if (error) {
         console.error("[v0] Error loading partners:", error)
-        console.error("[v0] Error details:", JSON.stringify(error, null, 2))
+        alert("Erro ao carregar parceiros. Tente novamente.")
         return
       }
 
-      if (data) {
-        console.log("[v0] Loaded partners:", data)
-        console.log("[v0] Number of partners:", data.length)
+      console.log("[v0] Partners loaded successfully:", data?.length || 0)
+      setPartners(data || [])
+    } catch (error) {
+      console.error("[v0] Exception loading partners:", error)
+      alert("Erro ao carregar parceiros. Tente novamente.")
+    } finally {
+      setLoadingPartners(false)
+    }
+  }
 
-        // Log partners by type
-        const partnersByType = data.reduce((acc: any, partner: any) => {
-          const type = partner.organization || "unknown"
-          if (!acc[type]) acc[type] = []
-          acc[type].push(partner.name)
-          return acc
-        }, {})
-        console.log("[v0] Partners by type:", partnersByType)
+  const handlePartnerSelect = (partnerId: string) => {
+    const partner = partners.find((p) => p.id === partnerId)
+    if (partner) {
+      console.log("[v0] Partner selected:", partner)
+      setFormData((prev) => ({
+        ...prev,
+        organizationType: partner.organization,
+        organizationName: partner.name,
+        responsibleName: "", // User can fill this
+        email: partner.email,
+        phone: partner.phone,
+      }))
+    }
+  }
 
-        setPartners(data)
-      } else {
-        console.log("[v0] No partner data returned")
+  const handleSubmit = async () => {
+    // Validate required fields
+    if (
+      !formData.organizationName ||
+      !formData.responsibleName ||
+      !formData.email ||
+      !formData.phone ||
+      !formData.visitDate ||
+      !formData.visitTime ||
+      !formData.numberOfVisitors
+    ) {
+      alert("Por favor, preencha todos os campos obrigatórios.")
+      return
+    }
+
+    console.log("[v0] Submitting booking:", formData)
+
+    try {
+      const supabase = getSupabase()
+
+      // If new partner, save it first
+      if (isExistingPartner === false) {
+        console.log("[v0] Creating new partner...")
+        const { data: partnerData, error: partnerError } = await supabase
+          .from("partners")
+          .insert([
+            {
+              name: formData.organizationName,
+              organization: formData.organizationType,
+              email: formData.email,
+              phone: formData.phone,
+            },
+          ])
+          .select()
+
+        if (partnerError) {
+          console.error("[v0] Error creating partner:", partnerError)
+          alert("Erro ao cadastrar parceiro. Tente novamente.")
+          return
+        }
+
+        console.log("[v0] Partner created successfully:", partnerData)
       }
-    }
 
-    if (isOpen) {
-      loadPartners()
-    }
-  }, [isOpen])
+      // Create booking
+      const bookingCode = `AG${Date.now().toString().slice(-8)}`
+      const qrCodeData = `BOOKING:${bookingCode}`
 
-  if (!isOpen) return null
+      const { data: bookingData, error: bookingError } = await supabase
+        .from("bookings")
+        .insert([
+          {
+            booking_code: bookingCode,
+            responsible_name: formData.responsibleName,
+            responsible_email: formData.email,
+            responsible_phone: formData.phone,
+            visit_date: formData.visitDate,
+            visit_time: formData.visitTime,
+            total_visitors: Number.parseInt(formData.numberOfVisitors),
+            visitor_type: formData.visitType === "guided" ? "Visita Guiada" : "Visita Livre",
+            qr_code: qrCodeData,
+            confirmation_sent: false,
+            validated: false,
+          },
+        ])
+        .select()
+
+      if (bookingError) {
+        console.error("[v0] Error creating booking:", bookingError)
+        alert("Erro ao criar agendamento. Tente novamente.")
+        return
+      }
+
+      console.log("[v0] Booking created successfully:", bookingData)
+
+      // Send confirmation email
+      try {
+        const emailResponse = await fetch("/api/send-confirmation-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookingId: bookingData[0].id,
+            bookingCode: bookingCode,
+            responsibleEmail: formData.email,
+            responsibleName: formData.responsibleName,
+            visitDate: formData.visitDate,
+            visitTime: formData.visitTime,
+            numberOfVisitors: formData.numberOfVisitors,
+            qrCode: qrCodeData,
+          }),
+        })
+
+        if (!emailResponse.ok) {
+          console.error("[v0] Error sending confirmation email")
+        } else {
+          console.log("[v0] Confirmation email sent successfully")
+        }
+      } catch (emailError) {
+        console.error("[v0] Exception sending email:", emailError)
+      }
+
+      // Show success message
+      setStep("success")
+    } catch (error) {
+      console.error("[v0] Exception during booking submission:", error)
+      alert("Erro ao processar agendamento. Tente novamente.")
+    }
+  }
 
   const handleClose = () => {
-    // Reset all states
-    setStep(1)
-    setIsPartner(null)
-    setSelectedPartner("")
-    setSelectedPartnerType("")
-    setNewPartner({ name: "", type: "", contact: "", email: "", phone: "" })
-    setResponsibleData({ name: "", email: "", phone: "", visitDate: "", visitTime: "" })
-    setVisitors([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
-    setGeneratedBookingId("")
+    console.log("[v0] Closing booking modal")
+    setStep("form")
+    setIsExistingPartner(null)
+    setFormData({
+      organizationType: "",
+      organizationName: "",
+      responsibleName: "",
+      email: "",
+      phone: "",
+      visitDate: "",
+      visitTime: "",
+      numberOfVisitors: "",
+      visitType: "guided",
+      signLanguage: false,
+      audioDescription: false,
+      eventType: "",
+      observations: "",
+    })
     onClose()
   }
 
-  const addVisitor = () => {
-    const newVisitor: Visitor = {
-      id: Date.now().toString(),
-      name: "",
-      age: "",
-      cpf_rg: "",
-      contact: "",
-    }
-    setVisitors([...visitors, newVisitor])
-  }
-
-  const removeVisitor = (id: string) => {
-    if (visitors.length > 1) {
-      setVisitors(visitors.filter((v) => v.id !== id))
-    }
-  }
-
-  const updateVisitor = (id: string, field: keyof Visitor, value: string) => {
-    setVisitors(visitors.map((v) => (v.id === id ? { ...v, [field]: value } : v)))
-  }
-
-  const handleRegisterNewPartner = async () => {
-    const supabase = getSupabase()
-
-    const { data, error } = await supabase
-      .from("partners")
-      .insert({
-        name: newPartner.name,
-        type: newPartner.type,
-        contact: newPartner.contact,
-        email: newPartner.email,
-        phone: newPartner.phone,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error("[v0] Error registering partner:", error)
-      alert("Erro ao cadastrar parceiro. Tente novamente.")
-      return false
-    }
-
-    if (data) {
-      setPartners([...partners, data])
-      setSelectedPartner(data.id.toString())
-      alert(`Parceiro cadastrado com sucesso!\nNome: ${data.name}`)
-      return true
-    }
-
-    return false
-  }
-
-  const handleSubmitBooking = async () => {
-    console.log("[v0] Submitting booking...")
-
-    if (isPartner === false) {
-      const registered = await handleRegisterNewPartner()
-      if (!registered) return
-    }
-
-    const supabase = getSupabase()
-    const bookingCode = `BKG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    setGeneratedBookingId(bookingCode)
-
-    let partnerInfo = null
-    if (isPartner && selectedPartner) {
-      const partner = partners.find((p) => p.id.toString() === selectedPartner)
-      partnerInfo = partner
-        ? {
-            partner_id: partner.id,
-            organization: partner.name,
-          }
-        : null
-    } else if (isPartner === false) {
-      partnerInfo = {
-        organization: newPartner.name,
-      }
-    }
-
-    const bookingPayload = {
-      booking_code: bookingCode,
-      responsible_name: responsibleData.name,
-      responsible_email: responsibleData.email,
-      responsible_phone: responsibleData.phone,
-      visit_date: responsibleData.visitDate,
-      visit_time: responsibleData.visitTime,
-      total_visitors: visitors.length,
-      visitor_type: "group",
-      qr_code: bookingCode,
-      confirmation_sent: false,
-      validated: false,
-      ...partnerInfo,
-    }
-
-    console.log("[v0] Creating booking with payload:", bookingPayload)
-
-    const { data: bookingData, error: bookingError } = await supabase
-      .from("bookings")
-      .insert(bookingPayload)
-      .select()
-      .single()
-
-    if (bookingError || !bookingData) {
-      console.error("[v0] Error saving booking:", bookingError)
-      alert("Erro ao criar agendamento. Tente novamente.")
-      return
-    }
-
-    console.log("[v0] Booking created successfully:", bookingData)
-
-    const visitorsPayload = visitors.map((visitor) => ({
-      booking_id: bookingData.id,
-      name: visitor.name,
-      age: Number.parseInt(visitor.age),
-      document_type: visitor.cpf_rg.replace(/\D/g, "").length === 11 ? "CPF" : "RG",
-      document_number: visitor.cpf_rg,
-    }))
-
-    const { error: visitorsError } = await supabase.from("booking_visitors").insert(visitorsPayload)
-
-    if (visitorsError) {
-      console.error("[v0] Error saving visitors:", visitorsError)
-      alert("Erro ao salvar visitantes. Tente novamente.")
-      return
-    }
-
-    console.log("[v0] Visitors saved successfully")
-
-    try {
-      console.log("[v0] Sending confirmation email...")
-      const emailResponse = await fetch("/api/send-confirmation-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookingId: bookingData.id }),
-      })
-
-      const emailResult = await emailResponse.json()
-
-      if (emailResult.success) {
-        console.log("[v0] Confirmation email sent successfully")
-        // Update booking to mark email as sent
-        await supabase.from("bookings").update({ confirmation_sent: true }).eq("id", bookingData.id)
-      } else {
-        console.error("[v0] Error sending email:", emailResult.error)
-      }
-    } catch (emailError) {
-      console.error("[v0] Error calling email API:", emailError)
-    }
-
-    console.log("[v0] Moving to confirmation step")
-    setStep(3)
-  }
-
-  const generateBookingPDF = () => {
-    const doc = new jsPDF()
-
-    doc.setFontSize(24)
-    doc.setFont("helvetica", "bold")
-    doc.text("PARQUE DAS ESCULTURAS", 105, 30, { align: "center" })
-
-    doc.setFontSize(16)
-    doc.setFont("helvetica", "normal")
-    doc.text("Agendamento de Visita", 105, 40, { align: "center" })
-
-    const qrCodeElement = document.getElementById("booking-qr-code")
-    if (qrCodeElement) {
-      const svgData = new XMLSerializer().serializeToString(qrCodeElement)
-      const canvas = document.createElement("canvas")
-      const ctx = canvas.getContext("2d")
-      const img = new globalThis.Image()
-
-      img.onload = () => {
-        canvas.width = img.width
-        canvas.height = img.height
-        ctx?.drawImage(img, 0, 0)
-        const pngData = canvas.toDataURL("image/png")
-        doc.addImage(pngData, "PNG", 70, 50, 70, 70)
-
-        doc.setFontSize(12)
-        doc.setFont("helvetica", "bold")
-
-        doc.text(`Responsável: ${responsibleData.name}`, 20, 135)
-        doc.text(`E-mail: ${responsibleData.email}`, 20, 145)
-        doc.text(`Telefone: ${responsibleData.phone}`, 20, 155)
-        doc.text(`Data da Visita: ${new Date(responsibleData.visitDate).toLocaleDateString("pt-BR")}`, 20, 165)
-        doc.text(`Horário: ${responsibleData.visitTime}`, 20, 175) // Added time
-        doc.text(`Total de Visitantes: ${visitors.length}`, 20, 185)
-
-        doc.text("Lista de Visitantes:", 20, 200)
-        doc.setFont("helvetica", "normal")
-        doc.setFontSize(10)
-
-        let yPosition = 210
-        visitors.forEach((visitor, index) => {
-          if (yPosition > 270) {
-            doc.addPage()
-            yPosition = 20
-          }
-          doc.text(`${index + 1}. ${visitor.name} - ${visitor.age} anos - ${visitor.cpf_rg}`, 25, yPosition)
-          yPosition += 10
-        })
-
-        doc.text(`ID: ${generatedBookingId}`, 20, yPosition + 10)
-
-        doc.save(`agendamento-${generatedBookingId}.pdf`)
-      }
-
-      img.src = `data:image/svg+xml;base64,${btoa(svgData)}`
-    }
-  }
-
-  const handleGenerateAnother = () => {
-    setStep(1)
-    setIsPartner(null)
-    setSelectedPartner("")
-    setSelectedPartnerType("")
-    setNewPartner({ name: "", type: "", contact: "", email: "", phone: "" })
-    setResponsibleData({ name: "", email: "", phone: "", visitDate: "", visitTime: "" })
-    setVisitors([{ id: "1", name: "", age: "", cpf_rg: "", contact: "" }])
-    setGeneratedBookingId("")
-  }
+  if (!isOpen) return null
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={handleClose}
-    >
-      <Card
-        className="w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl animate-fade-in rounded-2xl p-0 flex flex-col border-0"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-32 m-0 flex-shrink-0">
-          <div className="absolute inset-0">
-            <Image src="/images/marco-zero.jpeg" alt="Marco Zero" fill className="object-cover opacity-70" />
-            <div className="absolute inset-0 bg-gradient-to-b from-emerald-900/90 via-teal-800/80 to-cyan-700/90" />
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <Card className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
+        {/* Close button */}
+        <button
+          onClick={handleClose}
+          className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-100"
+          aria-label="Fechar"
+        >
+          <X className="h-5 w-5" />
+        </button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClose}
-            className="absolute right-4 top-4 text-white hover:bg-white/20 rounded-full w-10 h-10 p-0 z-50 transition-all hover:scale-110"
-          >
-            <X className="w-6 h-6" />
-          </Button>
-
-          <div className="relative z-10 flex flex-col items-center justify-center h-full text-white gap-1 px-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-6 h-6 md:w-7 md:h-7 opacity-50" />
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold drop-shadow-lg">Agendar Visita</h2>
+        {step === "form" ? (
+          <div className="p-6">
+            {/* Header */}
+            <div className="mb-6 rounded-lg bg-blue-600 p-4 text-white">
+              <h2 className="text-2xl font-bold">Agendar Visita ou Evento</h2>
+              <p className="text-sm">Para escolas, empresas de turismo, hotéis e grupos organizados</p>
             </div>
-            <p className="text-white/95 text-xs sm:text-sm md:text-base text-center max-w-lg leading-snug font-medium">
-              Organize sua visita em grupo ao Parque de Esculturas
-            </p>
-          </div>
-        </CardHeader>
 
-        <CardContent className="p-6 overflow-y-auto flex-1">
-          {step === 1 && isPartner === null && (
-            <div className="space-y-6">
-              <div className="text-center space-y-4">
-                <Building2 className="w-16 h-16 mx-auto text-emerald-600" />
-                <h3 className="text-2xl font-bold text-slate-800">Você é um parceiro cadastrado?</h3>
-                <p className="text-slate-600">
-                  Parceiros cadastrados incluem escolas, hotéis, agências de turismo e outras instituições
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button
-                  onClick={() => setIsPartner(true)}
-                  className="h-24 text-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold"
-                >
-                  <Building2 className="w-6 h-6 mr-2" />
-                  Sim, sou parceiro
-                </Button>
-                <Button
-                  onClick={() => setIsPartner(false)}
-                  variant="outline"
-                  className="h-24 text-lg border-2 border-emerald-500 text-emerald-600 hover:bg-emerald-50 font-semibold bg-transparent"
-                >
-                  <Plus className="w-6 h-6 mr-2" />
-                  Não, quero me cadastrar
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {step === 1 && isPartner === true && !selectedPartnerType && (
-            <div className="space-y-6">
-              <Button onClick={() => setIsPartner(null)} variant="ghost" className="mb-4">
-                ← Voltar
-              </Button>
-
-              <div className="space-y-4">
-                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Building2 className="w-5 h-5" />
-                  Qual tipo de parceiro você é?
-                </h3>
-                <p className="text-slate-600 text-sm">Selecione o tipo de organização que representa:</p>
-
-                <div className="grid grid-cols-1 gap-3">
-                  <Button
-                    onClick={() => {
-                      setSelectedPartnerType("Hotel")
-                      console.log("[v0] Selected partner type: Hotel")
-                    }}
-                    variant="outline"
-                    className="h-16 text-lg border-2 hover:bg-emerald-50 hover:border-emerald-500 justify-start px-6"
-                  >
-                    <Building2 className="w-5 h-5 mr-3" />
-                    Hotel
+            {/* Partner selection */}
+            {isExistingPartner === null && (
+              <div className="mb-6 space-y-4">
+                <Label className="text-lg font-semibold">Você já é um parceiro cadastrado?</Label>
+                <div className="flex gap-4">
+                  <Button onClick={() => setIsExistingPartner(true)} variant="outline" className="flex-1">
+                    Sim, já sou parceiro
                   </Button>
-
-                  <Button
-                    onClick={() => {
-                      setSelectedPartnerType("Escola")
-                      console.log("[v0] Selected partner type: Escola")
-                    }}
-                    variant="outline"
-                    className="h-16 text-lg border-2 hover:bg-emerald-50 hover:border-emerald-500 justify-start px-6"
-                  >
-                    <Users className="w-5 h-5 mr-3" />
-                    Escola
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      setSelectedPartnerType("ONG")
-                      console.log("[v0] Selected partner type: ONG")
-                    }}
-                    variant="outline"
-                    className="h-16 text-lg border-2 hover:bg-emerald-50 hover:border-emerald-500 justify-start px-6"
-                  >
-                    <Users className="w-5 h-5 mr-3" />
-                    ONG
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      setSelectedPartnerType("Agencia Turismo")
-                      console.log("[v0] Selected partner type: Agencia Turismo")
-                    }}
-                    variant="outline"
-                    className="h-16 text-lg border-2 hover:bg-emerald-50 hover:border-emerald-500 justify-start px-6"
-                  >
-                    <Building2 className="w-5 h-5 mr-3" />
-                    Agência de Turismo
-                  </Button>
-
-                  <Button
-                    onClick={() => {
-                      setSelectedPartnerType("Empresa")
-                      console.log("[v0] Selected partner type: Empresa (eventos)")
-                    }}
-                    variant="outline"
-                    className="h-16 text-lg border-2 hover:bg-emerald-50 hover:border-emerald-500 justify-start px-6"
-                  >
-                    <Building2 className="w-5 h-5 mr-3" />
-                    Empresa (eventos)
+                  <Button onClick={() => setIsExistingPartner(false)} variant="outline" className="flex-1">
+                    Não, preciso me cadastrar
                   </Button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {step === 1 && isPartner === true && selectedPartnerType && (
-            <div className="space-y-6">
-              <Button onClick={() => setSelectedPartnerType("")} variant="ghost" className="mb-4">
-                ← Voltar para tipos de parceiro
-              </Button>
-
-              <div className="space-y-4">
-                <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
-                  <h3 className="text-lg font-bold text-emerald-800 flex items-center gap-2">
-                    <Building2 className="w-5 h-5" />
-                    {selectedPartnerType}
-                  </h3>
-                  <p className="text-sm text-emerald-700 mt-1">Selecione sua organização da lista abaixo:</p>
-                </div>
-
-                {filteredPartners.length > 0 ? (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {filteredPartners.map((partner) => (
-                      <Button
-                        key={partner.id}
-                        onClick={() => {
-                          setSelectedPartner(partner.id.toString())
-                          console.log("[v0] Selected partner:", partner.name)
-                          setResponsibleData({
-                            ...responsibleData,
-                            name: partner.name || "",
-                            email: partner.email || "",
-                            phone: partner.phone || "",
-                          })
-                          console.log("[v0] Auto-filled responsible data:", {
-                            name: partner.name,
-                            email: partner.email,
-                            phone: partner.phone,
-                          })
-                          setStep(2)
-                        }}
-                        variant="outline"
-                        className="w-full h-auto py-4 px-6 text-left border-2 hover:bg-emerald-50 hover:border-emerald-500 flex flex-col items-start gap-1"
-                      >
-                        <div className="font-semibold text-base">{partner.name}</div>
-                        <div className="text-sm text-slate-500">{partner.email}</div>
-                      </Button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 bg-slate-50 rounded-lg border-2 border-dashed">
-                    <Building2 className="w-12 h-12 mx-auto text-slate-400 mb-3" />
-                    <p className="text-slate-600 mb-4">
-                      Nenhum parceiro do tipo "{selectedPartnerType}" cadastrado ainda.
-                    </p>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setIsPartner(false)
-                        setNewPartner({ ...newPartner, type: selectedPartnerType })
-                      }}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Cadastrar minha organização
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {step === 1 && isPartner === false && (
-            <div className="space-y-6">
-              <Button onClick={() => setIsPartner(null)} variant="ghost" className="mb-4">
-                ← Voltar
-              </Button>
-
-              <div className="space-y-4">
-                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Plus className="w-5 h-5" />
-                  Cadastrar Nova Organização/Instituição
-                </h3>
-
+            {/* Existing partner selection */}
+            {isExistingPartner === true && (
+              <div className="mb-6 space-y-4">
                 <div>
-                  <Label htmlFor="partner-name">Nome da Organização</Label>
-                  <Input
-                    id="partner-name"
-                    value={newPartner.name}
-                    onChange={(e) => setNewPartner({ ...newPartner, name: e.target.value })}
-                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
-                    placeholder="Ex: Colégio Santa Maria"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="partner-type">Tipo</Label>
-                  <Select
-                    value={newPartner.type}
-                    onValueChange={(value) => setNewPartner({ ...newPartner, type: value })}
-                  >
-                    <SelectTrigger className="mt-2 h-12 text-base border-2 focus:border-emerald-500">
-                      <SelectValue placeholder="Selecione o tipo" />
+                  <Label>Selecione sua Organização *</Label>
+                  <Select onValueChange={handlePartnerSelect} disabled={loadingPartners}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingPartners ? "Carregando..." : "Selecione sua organização"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Escola">Escola</SelectItem>
-                      <SelectItem value="Hotel">Hotel</SelectItem>
-                      <SelectItem value="Agência">Agência de Turismo</SelectItem>
-                      <SelectItem value="Empresa">Empresa</SelectItem>
-                      <SelectItem value="ONG">ONG</SelectItem>
+                      {partners.map((partner) => (
+                        <SelectItem key={partner.id} value={partner.id}>
+                          {partner.name} ({partner.organization})
+                        </SelectItem>
+                      ))}
+                      {partners.length === 0 && !loadingPartners && (
+                        <SelectItem value="none" disabled>
+                          Nenhum parceiro encontrado
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div>
-                  <Label htmlFor="partner-contact">Nome do Contato</Label>
-                  <Input
-                    id="partner-contact"
-                    value={newPartner.contact}
-                    onChange={(e) => setNewPartner({ ...newPartner, contact: e.target.value })}
-                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
-                    placeholder="Nome do responsável"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="partner-email">E-mail</Label>
-                  <Input
-                    id="partner-email"
-                    type="email"
-                    value={newPartner.email}
-                    onChange={(e) => setNewPartner({ ...newPartner, email: e.target.value })}
-                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
-                    placeholder="contato@organizacao.com"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="partner-phone">Telefone</Label>
-                  <Input
-                    id="partner-phone"
-                    value={newPartner.phone}
-                    onChange={(e) => setNewPartner({ ...newPartner, phone: e.target.value })}
-                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
-                    placeholder="(81) 99999-9999"
-                  />
-                </div>
-
-                <Button
-                  onClick={() => setStep(2)}
-                  disabled={!newPartner.name || !newPartner.type || !newPartner.contact || !newPartner.email}
-                  className="w-full h-14 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-lg font-semibold disabled:opacity-50"
-                >
-                  Continuar com Cadastro
+                <Button onClick={() => setIsExistingPartner(false)} variant="link" className="text-blue-600">
+                  Minha organização não está na lista
                 </Button>
               </div>
-            </div>
-          )}
+            )}
 
-          {step === 2 && (
-            <div className="space-y-6">
-              <Button onClick={() => setStep(1)} variant="ghost" className="mb-4">
-                ← Voltar
-              </Button>
-
+            {/* Form fields (show if new partner or partner selected) */}
+            {(isExistingPartner === false || formData.organizationName) && (
               <div className="space-y-4">
-                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Mail className="w-5 h-5" />
-                  Dados do Responsável
-                </h3>
-                {isPartner && selectedPartner && (
-                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <p className="text-sm text-blue-700">
-                      ℹ️ Os dados abaixo foram preenchidos automaticamente com as informações do parceiro cadastrado.
-                      Você pode alterá-los se necessário.
-                    </p>
+                {/* New partner - Organization type */}
+                {isExistingPartner === false && (
+                  <div>
+                    <Label htmlFor="orgType">Tipo de Organização *</Label>
+                    <Select
+                      value={formData.organizationType}
+                      onValueChange={(value) => setFormData((prev) => ({ ...prev, organizationType: value }))}
+                    >
+                      <SelectTrigger id="orgType">
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Escola">Escola</SelectItem>
+                        <SelectItem value="Hotel">Hotel</SelectItem>
+                        <SelectItem value="ONG">ONG</SelectItem>
+                        <SelectItem value="Agência">Agência de Turismo</SelectItem>
+                        <SelectItem value="Empresa">Empresa (eventos)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
 
-                <div>
-                  <Label htmlFor="resp-name">Nome Completo</Label>
-                  <Input
-                    id="resp-name"
-                    value={responsibleData.name}
-                    onChange={(e) => setResponsibleData({ ...responsibleData, name: e.target.value })}
-                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
-                    placeholder="Nome do responsável"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="resp-email">E-mail</Label>
-                  <Input
-                    id="resp-email"
-                    type="email"
-                    value={responsibleData.email}
-                    onChange={(e) => setResponsibleData({ ...responsibleData, email: e.target.value })}
-                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
-                    placeholder="seu@email.com"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="resp-phone">Telefone</Label>
-                  <Input
-                    id="resp-phone"
-                    value={responsibleData.phone}
-                    onChange={(e) => setResponsibleData({ ...responsibleData, phone: e.target.value })}
-                    className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
-                    placeholder="(81) 99999-9999"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Organization name */}
+                <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <Label htmlFor="visit-date">Data da Visita</Label>
+                    <Label htmlFor="orgName">Organização/Instituição *</Label>
                     <Input
-                      id="visit-date"
+                      id="orgName"
+                      placeholder="Nome da escola, empresa de turismo, hotel..."
+                      value={formData.organizationName}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, organizationName: e.target.value }))}
+                      disabled={isExistingPartner === true}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="respName">Nome do Responsável *</Label>
+                    <Input
+                      id="respName"
+                      placeholder="Seu nome completo"
+                      value={formData.responsibleName}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, responsibleName: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* Contact info */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="email">E-mail *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                      disabled={isExistingPartner === true && formData.email !== ""}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone">Telefone *</Label>
+                    <Input
+                      id="phone"
+                      placeholder="(81) 99999-9999"
+                      value={formData.phone}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                      disabled={isExistingPartner === true && formData.phone !== ""}
+                    />
+                  </div>
+                </div>
+
+                {/* Visit details */}
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <Label htmlFor="date">Data Desejada *</Label>
+                    <Input
+                      id="date"
                       type="date"
-                      value={responsibleData.visitDate}
-                      onChange={(e) => setResponsibleData({ ...responsibleData, visitDate: e.target.value })}
-                      className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                      value={formData.visitDate}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, visitDate: e.target.value }))}
                     />
                   </div>
-
                   <div>
-                    <Label htmlFor="visit-time">Horário da Visita</Label>
+                    <Label htmlFor="time">Horário *</Label>
                     <Input
-                      id="visit-time"
+                      id="time"
                       type="time"
-                      value={responsibleData.visitTime}
-                      onChange={(e) => setResponsibleData({ ...responsibleData, visitTime: e.target.value })}
-                      className="mt-2 h-12 text-base border-2 focus:border-emerald-500"
+                      value={formData.visitTime}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, visitTime: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="visitors">Nº de Visitantes *</Label>
+                    <Input
+                      id="visitors"
+                      type="number"
+                      placeholder="Ex: 30"
+                      value={formData.numberOfVisitors}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, numberOfVisitors: e.target.value }))}
                     />
                   </div>
                 </div>
-              </div>
 
-              <div className="border-t-2 border-slate-200 pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Lista de Visitantes ({visitors.length})
+                {/* Visit type */}
+                <div>
+                  <Label>Tipo de Visita *</Label>
+                  <div className="mt-2 grid gap-3 md:grid-cols-2">
+                    <button
+                      onClick={() => setFormData((prev) => ({ ...prev, visitType: "guided" }))}
+                      className={`rounded-lg border-2 p-4 text-left transition-colors ${
+                        formData.visitType === "guided"
+                          ? "border-blue-600 bg-blue-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="font-semibold">🗣️ Visita Guiada</div>
+                      <div className="text-sm text-gray-600">Com acompanhamento de guia especializado</div>
+                    </button>
+                    <button
+                      onClick={() => setFormData((prev) => ({ ...prev, visitType: "free" }))}
+                      className={`rounded-lg border-2 p-4 text-left transition-colors ${
+                        formData.visitType === "free"
+                          ? "border-blue-600 bg-blue-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="font-semibold">🚶 Visita Livre</div>
+                      <div className="text-sm text-gray-600">Exploração independente do parque</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Accessibility */}
+                <div>
+                  <Label>♿ Recursos de Acessibilidade</Label>
+                  <div className="mt-2 space-y-2">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.signLanguage}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, signLanguage: e.target.checked }))}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm">Tradutor de Libras</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.audioDescription}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, audioDescription: e.target.checked }))}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm">Audiodescrição</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Optional fields */}
+                <div>
+                  <Label htmlFor="eventType">Tipo de Evento (opcional)</Label>
+                  <Input
+                    id="eventType"
+                    placeholder="Ex: Workshop, Sessão de fotos, Evento educativo..."
+                    value={formData.eventType}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, eventType: e.target.value }))}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Deixe em branco se for apenas uma visita ao parque</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="observations">Observações Adicionais</Label>
+                  <Textarea
+                    id="observations"
+                    placeholder="Informações adicionais sobre sua visita ou necessidades especiais..."
+                    value={formData.observations}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, observations: e.target.value }))}
+                    rows={3}
+                  />
+                </div>
+
+                {/* Important info */}
+                <div className="rounded-lg bg-blue-50 p-4">
+                  <h3 className="mb-2 flex items-center gap-2 font-semibold text-blue-900">
+                    📋 Informações Importantes
                   </h3>
-                  <Button type="button" onClick={addVisitor} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Adicionar
-                  </Button>
+                  <ul className="space-y-1 text-sm text-blue-800">
+                    <li>• Agendamentos devem ser feitos com pelo menos 7 dias de antecedência</li>
+                    <li>• Grupos acima de 50 pessoas podem precisar ser divididos</li>
+                    <li>• Confirmação da disponibilidade por e-mail em até 48 horas</li>
+                    <li>• Eventos especiais estão sujeitos à aprovação e taxas adicionais</li>
+                  </ul>
                 </div>
 
-                <div className="max-h-96 overflow-y-auto space-y-4 pr-2">
-                  {visitors.map((visitor, index) => (
-                    <div key={visitor.id} className="border-2 border-slate-200 rounded-lg p-4 bg-slate-50">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-semibold text-slate-700">Visitante {index + 1}</span>
-                        {visitors.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeVisitor(visitor.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-sm font-medium text-slate-600">Nome</Label>
-                          <Input
-                            value={visitor.name}
-                            onChange={(e) => updateVisitor(visitor.id, "name", e.target.value)}
-                            className="mt-1 h-10 text-sm"
-                            placeholder="Nome completo"
-                          />
-                        </div>
-
-                        <div>
-                          <Label className="text-sm font-medium text-slate-600">Idade</Label>
-                          <Input
-                            type="number"
-                            value={visitor.age}
-                            onChange={(e) => updateVisitor(visitor.id, "age", e.target.value)}
-                            className="mt-1 h-10 text-sm"
-                            placeholder="Idade"
-                          />
-                        </div>
-
-                        <div>
-                          <Label className="text-sm font-medium text-slate-600">CPF ou RG</Label>
-                          <Input
-                            value={visitor.cpf_rg}
-                            onChange={(e) => updateVisitor(visitor.id, "cpf_rg", e.target.value)}
-                            className="mt-1 h-10 text-sm"
-                            placeholder="000.000.000-00"
-                          />
-                        </div>
-
-                        <div>
-                          <Label className="text-sm font-medium text-slate-600">Contato</Label>
-                          <Input
-                            value={visitor.contact}
-                            onChange={(e) => updateVisitor(visitor.id, "contact", e.target.value)}
-                            className="mt-1 h-10 text-sm"
-                            placeholder="Telefone ou e-mail"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {/* Submit button */}
+                <Button
+                  onClick={handleSubmit}
+                  className="w-full bg-blue-600 py-6 text-lg font-semibold hover:bg-blue-700"
+                >
+                  Enviar Solicitação de Agendamento
+                </Button>
               </div>
-
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Importante:</strong> Após o agendamento, você receberá um e-mail com o QR code que liberará a
-                  entrada de todos os visitantes cadastrados na data e horário selecionados.
-                </p>
-              </div>
-
-              <Button
-                onClick={handleSubmitBooking}
-                disabled={
-                  !responsibleData.name ||
-                  !responsibleData.email ||
-                  !responsibleData.phone ||
-                  !responsibleData.visitDate ||
-                  !responsibleData.visitTime ||
-                  visitors.some((v) => !v.name || !v.age || !v.cpf_rg)
-                }
-                className="w-full h-14 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-lg font-semibold disabled:opacity-50"
-              >
-                Confirmar Agendamento
-              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="p-6 text-center">
+            <div className="mb-4 flex justify-center">
+              <CheckCircle2 className="h-16 w-16 text-green-600" />
             </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-6">
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 animate-fade-in">
-                <div className="text-center space-y-4">
-                  <div className="w-20 h-20 mx-auto bg-emerald-500 rounded-full flex items-center justify-center animate-bounce">
-                    <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-
-                  <h3 className="text-3xl font-bold text-slate-800">Seu agendamento foi concluído com sucesso!</h3>
-
-                  <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white p-6 rounded-xl shadow-lg">
-                    <Mail className="w-8 h-8 mx-auto mb-3" />
-                    <p className="text-lg font-semibold mb-2">E-mail de Confirmação Enviado</p>
-                    <p className="text-emerald-50 text-sm">
-                      O responsável pela parceria receberá um e-mail em <strong>{responsibleData.email}</strong> com
-                      todas as informações referentes à visita, incluindo:
-                    </p>
-                    <ul className="text-left text-sm text-emerald-50 mt-3 space-y-1 max-w-md mx-auto">
-                      <li>• QR Code para validação na entrada</li>
-                      <li>• Lista completa de todos os visitantes</li>
-                      <li>• Data, horário e informações da visita</li>
-                    </ul>
-                  </div>
-
-                  <div className="w-32 h-32 mx-auto bg-white border-4 border-emerald-500 rounded-2xl flex items-center justify-center shadow-lg p-2">
-                    <QRCodeSVG id="booking-qr-code" value={generatedBookingId} size={112} level="H" />
-                  </div>
-
-                  <div className="bg-white/80 p-4 rounded-xl text-left space-y-2 shadow-inner">
-                    <p className="text-base">
-                      <strong>Responsável:</strong> {responsibleData.name}
-                    </p>
-                    <p className="text-base">
-                      <strong>E-mail:</strong> {responsibleData.email}
-                    </p>
-                    <p className="text-base">
-                      <strong>Data da Visita:</strong> {new Date(responsibleData.visitDate).toLocaleDateString("pt-BR")}
-                    </p>
-                    <p className="text-base">
-                      <strong>Horário:</strong> {responsibleData.visitTime}
-                    </p>
-                    <p className="text-base">
-                      <strong>Total de Visitantes:</strong> {visitors.length}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-3">
-                      <strong>ID:</strong> {generatedBookingId}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Button
-                  onClick={generateBookingPDF}
-                  className="w-full h-14 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-lg font-semibold"
-                >
-                  <Download className="w-5 h-5 mr-2" />
-                  Baixar Comprovante PDF
-                </Button>
-
-                <Button
-                  onClick={handleGenerateAnother}
-                  variant="outline"
-                  className="w-full h-12 border-2 border-emerald-500 text-emerald-600 hover:bg-emerald-50 text-base font-semibold bg-transparent"
-                >
-                  Fazer Novo Agendamento
-                </Button>
-
-                <Button
-                  onClick={handleClose}
-                  variant="ghost"
-                  className="w-full h-12 text-slate-500 hover:text-slate-700 text-base"
-                >
-                  Fechar
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
+            <h3 className="mb-2 text-2xl font-bold text-green-600">Agendamento Concluído!</h3>
+            <p className="mb-6 text-gray-600">
+              Seu agendamento foi realizado com sucesso. O responsável pela parceria receberá um e-mail com todas as
+              informações referente à visita, incluindo o QR code para validação.
+            </p>
+            <Button onClick={handleClose} className="bg-blue-600 hover:bg-blue-700">
+              Fechar
+            </Button>
+          </div>
+        )}
       </Card>
     </div>
   )

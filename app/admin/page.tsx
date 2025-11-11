@@ -651,35 +651,47 @@ export default function AdminDashboard() {
   const handleCreatePartner = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    console.log("[v0] Creating partner with data:", newPartner)
+
+    if (!newPartner.type) {
+      alert("Por favor, selecione o tipo de parceiro")
+      return
+    }
+
+    if (!newPartner.name || !newPartner.email || !newPartner.phone) {
+      alert("Por favor, preencha todos os campos obrigatórios (nome, email, telefone)")
+      return
+    }
+
     try {
       const response = await fetch("/api/partners/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newPartner.name,
-          organization: newPartner.type, // Use 'organization' field for type
+          organization: newPartner.type,
           phone: newPartner.phone,
           email: newPartner.email,
-          // Address is not currently being saved in the backend, but can be added if needed
         }),
       })
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || "Erro ao cadastrar parceiro")
+        throw new Error(error.error || "Erro ao criar parceiro")
       }
 
       const data = await response.json()
       console.log("[v0] Partner created:", data)
 
-      // Reload partners list
       await loadPartners()
+
+      console.log("[v0] Partners after reload:", partners.length)
 
       alert(`Parceiro cadastrado com sucesso!\nNome: ${newPartner.name}\nOrganização: ${newPartner.type}`)
       setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
     } catch (error: any) {
       console.error("[v0] Error creating partner:", error)
-      alert("Erro ao cadastrar parceiro: " + error.message)
+      alert("Erro ao criar parceiro: " + error.message)
     }
   }
 
@@ -1109,12 +1121,16 @@ export default function AdminDashboard() {
 
   const loadPartners = async () => {
     try {
+      console.log("[v0] Loading partners from admin...")
       const response = await fetch("/api/partners/list")
       const data = await response.json()
 
       if (data.partners) {
-        console.log("[v0] Loaded partners:", data.partners)
+        console.log("[v0] Loaded partners from API:", data.partners)
+        console.log("[v0] Number of partners loaded:", data.partners.length)
         setPartners(data.partners)
+      } else {
+        console.log("[v0] No partners in API response:", data)
       }
     } catch (error) {
       console.error("[v0] Error loading partners:", error)
