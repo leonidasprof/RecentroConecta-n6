@@ -509,10 +509,14 @@ export default function AdminDashboard() {
       const result = await response.json()
       console.log("[v0] handleCreateEmployee: Employee created successfully:", result.employee)
 
-      console.log("[v0] handleCreateEmployee: Reloading employees list...")
-      await loadEmployees()
+      console.log("[v0] handleCreateEmployee: Fetching updated employees list directly...")
+      const listResponse = await fetch("/api/employees/list")
+      const listResult = await listResponse.json()
       
-      console.log("[v0] handleCreateEmployee: Employees state after reload:", employees.length)
+      if (listResult.success) {
+        console.log("[v0] handleCreateEmployee: Setting employees state with", listResult.data.length, "employees")
+        setEmployees(listResult.data)
+      }
 
       alert(
         `Funcionário criado com sucesso!\n\nNome: ${result.employee.name}\nEmail: ${result.employee.email}\nSenha temporária: ${result.tempPassword}\n\nO funcionário pode usar esta senha para fazer login.`,
@@ -648,10 +652,14 @@ export default function AdminDashboard() {
       const result = await response.json()
       console.log("[v0] handleCreatePartner: Partner created successfully:", result.data)
       
-      console.log("[v0] handleCreatePartner: Reloading partners list...")
-      await loadPartners()
+      console.log("[v0] handleCreatePartner: Fetching updated partners list directly...")
+      const listResponse = await fetch("/api/partners/list")
+      const listResult = await listResponse.json()
       
-      console.log("[v0] handleCreatePartner: Partners state after reload:", partners.length)
+      if (listResult.success) {
+        console.log("[v0] handleCreatePartner: Setting partners state with", listResult.data.length, "partners")
+        setPartners(listResult.data)
+      }
 
       alert(`Parceiro cadastrado com sucesso!\nNome: ${newPartner.name}\nOrganização: ${newPartner.type}`)
       setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
@@ -891,10 +899,14 @@ export default function AdminDashboard() {
       const result = await response.json()
       console.log("[v0] handleCreateSculpture: Sculpture created successfully:", result.data)
 
-      console.log("[v0] handleCreateSculpture: Reloading sculptures list...")
-      await loadSculptures()
+      console.log("[v0] handleCreateSculpture: Fetching updated sculptures list directly...")
+      const listResponse = await fetch("/api/sculptures/list")
+      const listResult = await listResponse.json()
       
-      console.log("[v0] handleCreateSculpture: Sculptures state after reload:", sculptures.length)
+      if (listResult.success) {
+        console.log("[v0] handleCreateSculpture: Setting sculptures state with", listResult.data.length, "sculptures")
+        setSculptures(listResult.data)
+      }
 
       // Reset form
       setNewSculpture({
@@ -2393,7 +2405,7 @@ export default function AdminDashboard() {
                       id="sculpture-curiosity"
                       value={newSculpture.curiosity}
                       onChange={(e) => setNewSculpture({ ...newSculpture, curiosity: e.target.value })}
-                      placeholder="Conte uma curiosidade sobre a escultura..."
+                      placeholder="Curiosidade sobre a escultura..."
                       className="min-h-[100px] text-base"
                     />
                   </div>
