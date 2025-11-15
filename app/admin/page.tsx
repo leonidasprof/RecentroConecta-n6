@@ -154,7 +154,10 @@ const handlePrintQRCode = (sculpture: any) => {
 
 export default function AdminDashboard() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const forceRefresh = () => setRefreshTrigger(prev => prev + 1)
+  const forceRefresh = () => {
+    console.log("[v0] forceRefresh called - triggering component re-render")
+    setRefreshTrigger(Math.random())
+  }
 
   const [newEmployee, setNewEmployee] = useState({ name: "", email: "", role: "" })
   const [employees, setEmployees] = useState<any[]>([])

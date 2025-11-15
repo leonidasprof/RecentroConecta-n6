@@ -8,21 +8,20 @@ export async function DELETE(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get("id")
+    const { partnerId } = await request.json()
 
-    if (!id) {
+    if (!partnerId) {
       return NextResponse.json({ error: "ID do parceiro é obrigatório" }, { status: 400 })
     }
 
-    const { error } = await supabase.from("partners").delete().eq("id", id)
+    const { error } = await supabase.from("partners").delete().eq("id", partnerId)
 
     if (error) {
       console.error("[v0] Error deleting partner:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    console.log("[v0] Partner deleted successfully:", id)
+    console.log("[v0] Partner deleted successfully:", partnerId)
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error("[v0] Error in delete partner API:", error)
