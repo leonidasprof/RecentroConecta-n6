@@ -26,12 +26,14 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
-import { Users, TrendingUp, UserPlus, MessageSquare, Star, Home, Building2, School, Hotel, Plane, Briefcase, MapPin, BarChart3, UserCog, Handshake, ImageIcon, Database, QrCode, Download, Camera, AlertCircle, Plus, Edit2, Trash2, Calendar, X, Pencil, Package, Loader2, Save, CheckCircle2, Upload, Printer } from 'lucide-react'
+import { Users, TrendingUp, UserPlus, MessageSquare, Star, Home, Building2, Building, School, Hotel, Plane, Briefcase, MapPin, BarChart3, UserCog, Handshake, ImageIcon, Database, QrCode, Download, Camera, AlertCircle, Plus, Edit2, Trash2, Calendar, X, Pencil, Package, Loader2, Save, CheckCircle2, Upload, Printer } from 'lucide-react'
 import Link from "next/link"
 import Image from "next/image"
 import { getSupabase } from "@/lib/supabase"
 import QrScanner from "@/components/qr-scanner" // Imported QrScanner
 import jsPDF from "jspdf" // Import jsPDF
+
+// Build version: 2025-11-15-fix-building-icon
 
 // Added helper function for partner icons
 const getPartnerIcon = (organization: string) => {
@@ -41,7 +43,7 @@ const getPartnerIcon = (organization: string) => {
   if (org.includes("agência") || org.includes("agency")) return <Plane className="w-6 h-6" />
   if (org.includes("empresa") || org.includes("company")) return <Briefcase className="w-6 h-6" />
   if (org.includes("ong")) return <Users className="w-6 h-6" />
-  // Default icon for other types
+  // Default icon for other types - using Building2 (correctly imported from lucide-react)
   return <Building2 className="w-6 h-6" />
 }
 
@@ -219,6 +221,8 @@ export default function AdminDashboard() {
   const [bookingsSearchDate, setBookingsSearchDate] = useState("")
   const [searchedBookings, setSearchedBookings] = useState<any[]>([])
   const [showBookingsList, setShowBookingsList] = useState(false) // Added to control modal visibility
+
+  const [loadingPartners, setLoadingPartners] = useState(true) // Added for loading state
 
   useEffect(() => {
     const employeeData = localStorage.getItem("employee")
@@ -1127,6 +1131,7 @@ export default function AdminDashboard() {
   }
 
   const loadPartners = async () => {
+    setLoadingPartners(true)
     try {
       console.log("[v0] loadPartners: Fetching from API...")
       const response = await fetch("/api/partners/list")
@@ -1142,6 +1147,8 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error("[v0] loadPartners: Exception occurred:", error)
+    } finally {
+      setLoadingPartners(false)
     }
   }
 
@@ -2233,13 +2240,23 @@ export default function AdminDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {partners.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Building className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-semibold">Nenhum parceiro cadastrado ainda.</p>
-                    <p className="text-sm">Clique em "Cadastrar Novo Parceiro" para começar.</p>
+                {/* Fixed line 2238 - Changed Building to Building2 to match import */}
+                {partners.length === 0 && !loadingPartners && (
+                  <div className="text-center py-12 text-gray-500">
+                    <Building2 className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p>Nenhum parceiro cadastrado ainda.</p>
+                    <p className="text-sm mt-2">Clique em "Adicionar Novo Parceiro" para começar.</p>
                   </div>
-                ) : (
+                )}
+
+                {loadingPartners && (
+                  <div className="text-center py-12">
+                    <Loader2 className="w-16 h-16 mx-auto mb-4 animate-spin text-blue-500" />
+                    <p className="text-lg font-semibold">Carregando parceiros...</p>
+                  </div>
+                )}
+
+                {!loadingPartners && partners.length > 0 && (
                   <div key={`partners-${refreshTrigger}`} className="space-y-4">
                     {partners.map((partner) => (
                       <div
