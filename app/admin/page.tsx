@@ -26,41 +26,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
-import {
-  Users,
-  TrendingUp,
-  UserPlus,
-  MessageSquare,
-  Star,
-  Home,
-  Building2,
-  School,
-  Hotel,
-  Plane,
-  Briefcase,
-  MapPin,
-  BarChart3,
-  UserCog,
-  Handshake,
-  ImageIcon,
-  Database,
-  QrCode,
-  Download,
-  Camera,
-  AlertCircle,
-  Plus,
-  Edit2,
-  Trash2,
-  Calendar,
-  X,
-  Pencil,
-  Package,
-  Loader2,
-  Save,
-  CheckCircle2,
-  Upload,
-  Printer,
-} from "lucide-react"
+import { Users, TrendingUp, UserPlus, MessageSquare, Star, Home, Building2, School, Hotel, Plane, Briefcase, MapPin, BarChart3, UserCog, Handshake, ImageIcon, Database, QrCode, Download, Camera, AlertCircle, Plus, Edit2, Trash2, Calendar, X, Pencil, Package, Loader2, Save, CheckCircle2, Upload, Printer } from 'lucide-react'
 import Link from "next/link"
 import Image from "next/image"
 import { getSupabase } from "@/lib/supabase"
@@ -544,10 +510,11 @@ export default function AdminDashboard() {
 
       console.log("[v0] Employee created successfully:", result)
       console.log("[v0] Reloading employees list...")
-
-      await loadEmployees()
-
-      console.log("[v0] Employees after reload:", employees.length)
+      
+      setTimeout(async () => {
+        await loadEmployees()
+        console.log("[v0] Employees after reload:", employees.length)
+      }, 500)
 
       alert(
         `Funcionário criado com sucesso!\n\nNome: ${result.employee.name}\nEmail: ${result.employee.email}\nSenha temporária: ${result.tempPassword}\n\nO funcionário pode usar esta senha para fazer login.`,
@@ -682,10 +649,11 @@ export default function AdminDashboard() {
 
       const data = await response.json()
       console.log("[v0] Partner created:", data)
-
-      await loadPartners()
-
-      console.log("[v0] Partners after reload:", partners.length)
+      
+      setTimeout(async () => {
+        await loadPartners()
+        console.log("[v0] Partners after reload:", partners.length)
+      }, 500)
 
       alert(`Parceiro cadastrado com sucesso!\nNome: ${newPartner.name}\nOrganização: ${newPartner.type}`)
       setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
@@ -940,9 +908,12 @@ export default function AdminDashboard() {
 
       console.log("[v0] handleCreateSculpture: Reloading sculptures list...")
       console.log("[v0] handleCreateSculpture: Current sculptures count BEFORE reload:", sculptures.length)
-      await loadSculptures()
-      console.log("[v0] handleCreateSculpture: Sculptures list reloaded")
-      console.log("[v0] handleCreateSculpture: Current sculptures count AFTER reload:", sculptures.length)
+      
+      setTimeout(async () => {
+        await loadSculptures()
+        console.log("[v0] handleCreateSculpture: Sculptures list reloaded")
+        console.log("[v0] handleCreateSculpture: Current sculptures count AFTER reload:", sculptures.length)
+      }, 500)
 
       // Reset form
       setNewSculpture({
