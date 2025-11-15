@@ -479,42 +479,46 @@ export default function AdminDashboard() {
     setNewEmployee({ name: "", email: "", role: "" })
   }
 
+  // Updated handleCreateEmployee function
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("[v0] handleCreateEmployee: Starting employee creation")
+    console.log("[v0] handleCreateEmployee: Data:", newEmployee)
 
-    console.log("[v0] Creating employee:", newEmployee)
-
-    if (!newEmployee.name || !newEmployee.email || !newEmployee.role) {
-      alert("Por favor, preencha todos os campos obrigatórios.")
+    if (!newEmployee.name.trim() || !newEmployee.email.trim() || !newEmployee.role) {
+      alert("Por favor, preencha todos os campos")
       return
     }
 
     try {
-      console.log("[v0] Sending create employee request...")
+      console.log("[v0] handleCreateEmployee: Sending request to API...")
       const response = await fetch("/api/employees/create", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newEmployee),
       })
 
-      const result = await response.json()
-      console.log("[v0] Create employee response:", result)
+      console.log("[v0] handleCreateEmployee: API response status:", response.status)
 
       if (!response.ok) {
-        console.error("[v0] Error creating employee:", result.error)
-        alert(result.error || "Erro ao criar funcionário")
-        return
+        const error = await response.json()
+        console.error("[v0] handleCreateEmployee: API error:", error)
+        throw new Error(error.error || "Erro ao criar funcionário")
       }
 
-      console.log("[v0] Employee created successfully:", result)
-      console.log("[v0] Reloading employees list...")
+      const result = await response.json()
+      console.log("[v0] handleCreateEmployee: Employee created successfully:", result)
       
-      setTimeout(async () => {
-        await loadEmployees()
-        console.log("[v0] Employees after reload:", employees.length)
-      }, 500)
+      console.log("[v0] handleCreateEmployee: Reloading employees list...")
+      await new Promise(resolve => setTimeout(resolve, 500))
+      const loadResponse = await fetch("/api/employees/list")
+      if (loadResponse.ok) {
+        const loadResult = await loadResponse.json()
+        if (loadResult.success) {
+          setEmployees(loadResult.data)
+          console.log("[v0] handleCreateEmployee: Employees reloaded, count:", loadResult.data.length)
+        }
+      }
 
       alert(
         `Funcionário criado com sucesso!\n\nNome: ${result.employee.name}\nEmail: ${result.employee.email}\nSenha temporária: ${result.tempPassword}\n\nO funcionário pode usar esta senha para fazer login.`,
@@ -522,7 +526,7 @@ export default function AdminDashboard() {
 
       setNewEmployee({ name: "", email: "", role: "" })
     } catch (error) {
-      console.error("[v0] Error creating employee:", error)
+      console.error("[v0] handleCreateEmployee: Error occurred:", error)
       alert("Erro ao criar funcionário. Tente novamente.")
     }
   }
@@ -615,22 +619,19 @@ export default function AdminDashboard() {
     setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
   }
 
+  // Updated handleCreatePartner function
   const handleCreatePartner = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("[v0] handleCreatePartner: Starting partner creation")
+    console.log("[v0] handleCreatePartner: Data:", newPartner)
 
-    console.log("[v0] Creating partner with data:", newPartner)
-
-    if (!newPartner.type) {
-      alert("Por favor, selecione o tipo de parceiro")
-      return
-    }
-
-    if (!newPartner.name || !newPartner.email || !newPartner.phone) {
-      alert("Por favor, preencha todos os campos obrigatórios (nome, email, telefone)")
+    if (!newPartner.name.trim() || !newPartner.type.trim()) {
+      alert("Por favor, preencha nome e tipo de organização")
       return
     }
 
     try {
+      console.log("[v0] handleCreatePartner: Sending request to API...")
       const response = await fetch("/api/partners/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -642,23 +643,32 @@ export default function AdminDashboard() {
         }),
       })
 
+      console.log("[v0] handleCreatePartner: API response status:", response.status)
+
       if (!response.ok) {
         const error = await response.json()
+        console.error("[v0] handleCreatePartner: API error:", error)
         throw new Error(error.error || "Erro ao criar parceiro")
       }
 
       const data = await response.json()
-      console.log("[v0] Partner created:", data)
+      console.log("[v0] handleCreatePartner: Partner created successfully:", data)
       
-      setTimeout(async () => {
-        await loadPartners()
-        console.log("[v0] Partners after reload:", partners.length)
-      }, 500)
+      console.log("[v0] handleCreatePartner: Reloading partners list...")
+      await new Promise(resolve => setTimeout(resolve, 500))
+      const loadResponse = await fetch("/api/partners/list")
+      if (loadResponse.ok) {
+        const loadResult = await loadResponse.json()
+        if (loadResult.success) {
+          setPartners(loadResult.data)
+          console.log("[v0] handleCreatePartner: Partners reloaded, count:", loadResult.data.length)
+        }
+      }
 
       alert(`Parceiro cadastrado com sucesso!\nNome: ${newPartner.name}\nOrganização: ${newPartner.type}`)
       setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
     } catch (error: any) {
-      console.error("[v0] Error creating partner:", error)
+      console.error("[v0] handleCreatePartner: Error occurred:", error)
       alert("Erro ao criar parceiro: " + error.message)
     }
   }
@@ -843,45 +853,34 @@ export default function AdminDashboard() {
     }
   }
 
+  // Updated handleCreateSculpture function
   const handleCreateSculpture = async () => {
     try {
-      console.log("[v0] ====== CREATING NEW SCULPTURE ======")
-      console.log("[v0] handleCreateSculpture: Started. imageFile:", imageFile?.name)
-      console.log("[v0] handleCreateSculpture: Form data:", {
-        name: newSculpture.name,
-        description: newSculpture.description,
-        curiosity: newSculpture.curiosity,
-      })
+      console.log("[v0] handleCreateSculpture: Starting sculpture creation")
+      console.log("[v0] handleCreateSculpture: Data:", newSculpture)
+      console.log("[v0] handleCreateSculpture: Image file:", imageFile?.name)
 
-      if (!newSculpture.name.trim()) {
-        alert("Por favor, preencha o nome da escultura")
+      if (!newSculpture.name.trim() || !newSculpture.description.trim()) {
+        alert("Nome e descrição são obrigatórios")
         return
       }
 
       setUploadingImage(true)
-      setLoading(true) // Set general loading state
-      let imageUrl = newSculpture.imageUrl
-
+      setLoading(true)
+      
+      let imageUrl = ""
       if (imageFile) {
+        console.log("[v0] handleCreateSculpture: Uploading image...")
         try {
-          console.log("[v0] handleCreateSculpture: Uploading image file:", imageFile.name)
           imageUrl = await handleImageUpload(imageFile)
           console.log("[v0] handleCreateSculpture: Image uploaded successfully:", imageUrl)
         } catch (error) {
-          console.error("[v0] handleCreateSculpture: Error uploading image:", error)
+          console.error("[v0] handleCreateSculpture: Image upload failed:", error)
           alert("Erro ao fazer upload da imagem. A escultura será criada sem imagem.")
         }
-      } else {
-        console.log("[v0] handleCreateSculpture: No image file selected")
       }
 
-      console.log("[v0] handleCreateSculpture: Creating sculpture with data:", {
-        name: newSculpture.name,
-        description: newSculpture.description,
-        curiosity: newSculpture.curiosity,
-        image_url: imageUrl,
-      })
-
+      console.log("[v0] handleCreateSculpture: Sending request to API...")
       const response = await fetch("/api/sculptures/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -898,22 +897,23 @@ export default function AdminDashboard() {
 
       if (!response.ok) {
         const error = await response.json()
-        console.error("[v0] handleCreateSculpture: API error response:", error)
+        console.error("[v0] handleCreateSculpture: API error:", error)
         throw new Error(error.error || "Erro ao criar escultura")
       }
 
       const data = await response.json()
       console.log("[v0] handleCreateSculpture: Sculpture created successfully:", data)
-      console.log("[v0] handleCreateSculpture: New sculpture ID:", data.sculpture?.id)
 
       console.log("[v0] handleCreateSculpture: Reloading sculptures list...")
-      console.log("[v0] handleCreateSculpture: Current sculptures count BEFORE reload:", sculptures.length)
-      
-      setTimeout(async () => {
-        await loadSculptures()
-        console.log("[v0] handleCreateSculpture: Sculptures list reloaded")
-        console.log("[v0] handleCreateSculpture: Current sculptures count AFTER reload:", sculptures.length)
-      }, 500)
+      await new Promise(resolve => setTimeout(resolve, 500))
+      const loadResponse = await fetch("/api/sculptures/list")
+      if (loadResponse.ok) {
+        const loadResult = await loadResponse.json()
+        if (loadResult.success) {
+          setSculptures(loadResult.data)
+          console.log("[v0] handleCreateSculpture: Sculptures reloaded, count:", loadResult.data.length)
+        }
+      }
 
       // Reset form
       setNewSculpture({
@@ -927,14 +927,13 @@ export default function AdminDashboard() {
       setImagePreview(null)
       setShowCreateSculpture(false)
 
-      console.log("[v0] ====== SCULPTURE CREATION COMPLETE ======")
       alert("Escultura criada com sucesso!")
     } catch (error: any) {
       console.error("[v0] handleCreateSculpture: Error occurred:", error.message)
       alert(`Erro ao criar escultura: ${error.message}`)
     } finally {
       setUploadingImage(false)
-      setLoading(false) // Reset general loading state
+      setLoading(false)
     }
   }
 
