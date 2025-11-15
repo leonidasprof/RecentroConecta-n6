@@ -521,7 +521,8 @@ export default function AdminDashboard() {
       if (!response.ok) {
         const error = await response.json()
         console.error("[v0] handleCreateEmployee: API error:", error)
-        throw new Error(error.error || "Erro ao criar funcionário")
+        alert(error.error || "Erro ao criar funcionário")
+        return
       }
 
       const result = await response.json()
@@ -542,9 +543,9 @@ export default function AdminDashboard() {
       )
 
       setNewEmployee({ name: "", email: "", role: "" })
-    } catch (error) {
+    } catch (error: any) {
       console.error("[v0] handleCreateEmployee: Error occurred:", error)
-      alert("Erro ao criar funcionário. Tente novamente.")
+      alert(error.message || "Erro ao criar funcionário. Tente novamente.")
     }
   }
 
