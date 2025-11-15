@@ -3,22 +3,29 @@ import { NextResponse } from "next/server"
 
 export async function GET() {
   try {
+    console.log("[v0] API: Starting partners list...")
+    
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
 
     const { data, error } = await supabase.from("partners").select("*").order("created_at", { ascending: false })
 
     if (error) {
-      console.error("[v0] Error loading partners:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error("[v0] API: Error loading partners:", error)
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 
-    console.log("[v0] API: Loaded partners:", data)
-    return NextResponse.json({ partners: data })
+    console.log("[v0] API: Successfully loaded", data.length, "partners")
+    return NextResponse.json({ success: true, data })
   } catch (error: any) {
-    console.error("[v0] Error in partners list API:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error("[v0] API: Unexpected error in partners list:", error)
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }

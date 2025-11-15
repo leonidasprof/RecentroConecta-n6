@@ -3,11 +3,16 @@ import { createClient } from "@supabase/supabase-js"
 
 export async function POST(request: Request) {
   try {
+    console.log("[v0] API: Starting sculpture creation...")
+    
     const body = await request.json()
-    const { name, description, curiosity, image_url } = body
+    const { name, description, curiosity, image_url, sculpture_number } = body
+
+    console.log("[v0] API: Sculpture data received:", { name, description, curiosity, sculpture_number, hasImage: !!image_url })
 
     if (!name || !description) {
-      return NextResponse.json({ error: "Nome e descrição são obrigatórios" }, { status: 400 })
+      console.log("[v0] API: Validation failed - missing required fields")
+      return NextResponse.json({ success: false, error: "Nome e descrição são obrigatórios" }, { status: 400 })
     }
 
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -30,6 +35,8 @@ export async function POST(request: Request) {
       nextNumber = (typeof lastCode === "number" ? lastCode : 0) + 1
     }
 
+    console.log("[v0] API: Next sculpture code:", nextNumber)
+
     const { data, error } = await supabase
       .from("sculptures")
       .insert({
@@ -38,18 +45,20 @@ export async function POST(request: Request) {
         description,
         curiosity: curiosity || null,
         image_url: image_url || null,
+        sculpture_number: sculpture_number || null,
       })
       .select()
       .single()
 
     if (error) {
-      console.error("[v0] Error creating sculpture:", error)
-      return NextResponse.json({ error: "Erro ao criar escultura: " + error.message }, { status: 500 })
+      console.error("[v0] API: Database error creating sculpture:", error)
+      return NextResponse.json({ success: false, error: "Erro ao criar escultura: " + error.message }, { status: 500 })
     }
 
-    return NextResponse.json(data)
+    console.log("[v0] API: Sculpture created successfully:", data)
+    return NextResponse.json({ success: true, data })
   } catch (error: any) {
-    console.error("[v0] Error in sculptures/create API:", error)
-    return NextResponse.json({ error: error.message || "Erro ao criar escultura" }, { status: 500 })
+    console.error("[v0] API: Unexpected error in sculptures/create:", error)
+    return NextResponse.json({ success: false, error: error.message || "Erro ao criar escultura" }, { status: 500 })
   }
 }

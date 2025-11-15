@@ -482,16 +482,16 @@ export default function AdminDashboard() {
   // Updated handleCreateEmployee function
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("[v0] handleCreateEmployee: Starting employee creation")
-    console.log("[v0] handleCreateEmployee: Data:", newEmployee)
 
-    if (!newEmployee.name.trim() || !newEmployee.email.trim() || !newEmployee.role) {
-      alert("Por favor, preencha todos os campos")
-      return
-    }
+    console.log("[v0] handleCreateEmployee: Starting creation with data:", newEmployee)
 
     try {
-      console.log("[v0] handleCreateEmployee: Sending request to API...")
+      if (!newEmployee.name || !newEmployee.email || !newEmployee.role) {
+        alert("Preencha todos os campos obrigatórios")
+        return
+      }
+
+      console.log("[v0] handleCreateEmployee: Sending API request...")
       const response = await fetch("/api/employees/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -507,18 +507,12 @@ export default function AdminDashboard() {
       }
 
       const result = await response.json()
-      console.log("[v0] handleCreateEmployee: Employee created successfully:", result)
-      
+      console.log("[v0] handleCreateEmployee: Employee created successfully:", result.employee)
+
       console.log("[v0] handleCreateEmployee: Reloading employees list...")
-      await new Promise(resolve => setTimeout(resolve, 500))
-      const loadResponse = await fetch("/api/employees/list")
-      if (loadResponse.ok) {
-        const loadResult = await loadResponse.json()
-        if (loadResult.success) {
-          setEmployees(loadResult.data)
-          console.log("[v0] handleCreateEmployee: Employees reloaded, count:", loadResult.data.length)
-        }
-      }
+      await loadEmployees()
+      
+      console.log("[v0] handleCreateEmployee: Employees state after reload:", employees.length)
 
       alert(
         `Funcionário criado com sucesso!\n\nNome: ${result.employee.name}\nEmail: ${result.employee.email}\nSenha temporária: ${result.tempPassword}\n\nO funcionário pode usar esta senha para fazer login.`,
@@ -622,16 +616,16 @@ export default function AdminDashboard() {
   // Updated handleCreatePartner function
   const handleCreatePartner = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("[v0] handleCreatePartner: Starting partner creation")
-    console.log("[v0] handleCreatePartner: Data:", newPartner)
 
-    if (!newPartner.name.trim() || !newPartner.type.trim()) {
-      alert("Por favor, preencha nome e tipo de organização")
-      return
-    }
+    console.log("[v0] handleCreatePartner: Starting creation with data:", newPartner)
 
     try {
-      console.log("[v0] handleCreatePartner: Sending request to API...")
+      if (!newPartner.name || !newPartner.type) {
+        alert("Por favor, preencha o nome e o tipo de organização")
+        return
+      }
+
+      console.log("[v0] handleCreatePartner: Sending API request...")
       const response = await fetch("/api/partners/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -651,19 +645,13 @@ export default function AdminDashboard() {
         throw new Error(error.error || "Erro ao criar parceiro")
       }
 
-      const data = await response.json()
-      console.log("[v0] handleCreatePartner: Partner created successfully:", data)
+      const result = await response.json()
+      console.log("[v0] handleCreatePartner: Partner created successfully:", result.data)
       
       console.log("[v0] handleCreatePartner: Reloading partners list...")
-      await new Promise(resolve => setTimeout(resolve, 500))
-      const loadResponse = await fetch("/api/partners/list")
-      if (loadResponse.ok) {
-        const loadResult = await loadResponse.json()
-        if (loadResult.success) {
-          setPartners(loadResult.data)
-          console.log("[v0] handleCreatePartner: Partners reloaded, count:", loadResult.data.length)
-        }
-      }
+      await loadPartners()
+      
+      console.log("[v0] handleCreatePartner: Partners state after reload:", partners.length)
 
       alert(`Parceiro cadastrado com sucesso!\nNome: ${newPartner.name}\nOrganização: ${newPartner.type}`)
       setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
@@ -858,20 +846,19 @@ export default function AdminDashboard() {
     try {
       console.log("[v0] handleCreateSculpture: Starting sculpture creation")
       console.log("[v0] handleCreateSculpture: Data:", newSculpture)
-      console.log("[v0] handleCreateSculpture: Image file:", imageFile?.name)
 
-      if (!newSculpture.name.trim() || !newSculpture.description.trim()) {
+      if (!newSculpture.name || !newSculpture.description) {
         alert("Nome e descrição são obrigatórios")
         return
       }
 
       setUploadingImage(true)
       setLoading(true)
-      
       let imageUrl = ""
+
       if (imageFile) {
-        console.log("[v0] handleCreateSculpture: Uploading image...")
         try {
+          console.log("[v0] handleCreateSculpture: Uploading image...")
           imageUrl = await handleImageUpload(imageFile)
           console.log("[v0] handleCreateSculpture: Image uploaded successfully:", imageUrl)
         } catch (error) {
@@ -901,19 +888,13 @@ export default function AdminDashboard() {
         throw new Error(error.error || "Erro ao criar escultura")
       }
 
-      const data = await response.json()
-      console.log("[v0] handleCreateSculpture: Sculpture created successfully:", data)
+      const result = await response.json()
+      console.log("[v0] handleCreateSculpture: Sculpture created successfully:", result.data)
 
       console.log("[v0] handleCreateSculpture: Reloading sculptures list...")
-      await new Promise(resolve => setTimeout(resolve, 500))
-      const loadResponse = await fetch("/api/sculptures/list")
-      if (loadResponse.ok) {
-        const loadResult = await loadResponse.json()
-        if (loadResult.success) {
-          setSculptures(loadResult.data)
-          console.log("[v0] handleCreateSculpture: Sculptures reloaded, count:", loadResult.data.length)
-        }
-      }
+      await loadSculptures()
+      
+      console.log("[v0] handleCreateSculpture: Sculptures state after reload:", sculptures.length)
 
       // Reset form
       setNewSculpture({
@@ -1091,19 +1072,20 @@ export default function AdminDashboard() {
 
   const loadPartners = async () => {
     try {
-      console.log("[v0] Loading partners from admin...")
+      console.log("[v0] loadPartners: Fetching from API...")
       const response = await fetch("/api/partners/list")
-      const data = await response.json()
+      const result = await response.json()
 
-      if (data.partners) {
-        console.log("[v0] Loaded partners from API:", data.partners)
-        console.log("[v0] Number of partners loaded:", data.partners.length)
-        setPartners(data.partners)
+      console.log("[v0] loadPartners: API response:", result)
+
+      if (result.success) {
+        console.log("[v0] loadPartners: Successfully loaded", result.data.length, "partners")
+        setPartners(result.data)
       } else {
-        console.log("[v0] No partners in API response:", data)
+        console.error("[v0] loadPartners: Error from API:", result.error)
       }
     } catch (error) {
-      console.error("[v0] Error loading partners:", error)
+      console.error("[v0] loadPartners: Exception occurred:", error)
     }
   }
 
