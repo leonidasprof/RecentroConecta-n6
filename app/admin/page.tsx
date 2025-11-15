@@ -1855,7 +1855,6 @@ export default function AdminDashboard() {
             )}
           </TabsContent>
 
-          {/* Employees Tab */}
           <TabsContent value="employees" className="space-y-6">
             <Card className="modern-card">
               <CardHeader>
