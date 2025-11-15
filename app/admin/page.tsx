@@ -449,6 +449,8 @@ export default function AdminDashboard() {
     }
 
     try {
+      console.log("[v0] handleDeleteEmployee: Deleting employee ID:", employeeId)
+      
       const response = await fetch("/api/employees/delete", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -460,11 +462,19 @@ export default function AdminDashboard() {
         throw new Error(error.error || "Failed to delete employee")
       }
 
-      // Remove from local state
-      setEmployees(employees.filter((emp) => emp.id !== employeeId))
+      console.log("[v0] handleDeleteEmployee: Employee deleted, reloading list...")
+      
+      const listResponse = await fetch("/api/employees/list")
+      const listResult = await listResponse.json()
+      
+      if (listResult.success) {
+        console.log("[v0] handleDeleteEmployee: Setting employees state with", listResult.data.length, "employees")
+        setEmployees(listResult.data)
+      }
+
       alert("Funcionário excluído com sucesso!")
     } catch (error: any) {
-      console.error("[v0] Error deleting employee:", error)
+      console.error("[v0] handleDeleteEmployee: Error occurred:", error)
       alert(`Erro ao excluir funcionário: ${error.message}`)
     }
   }
@@ -593,6 +603,8 @@ export default function AdminDashboard() {
     }
 
     try {
+      console.log("[v0] handleDeletePartner: Deleting partner ID:", partnerId)
+      
       const response = await fetch(`/api/partners/delete?id=${partnerId}`, {
         method: "DELETE",
       })
@@ -602,12 +614,19 @@ export default function AdminDashboard() {
         throw new Error(error.error || "Erro ao excluir parceiro")
       }
 
-      // Reload partners list
-      await loadPartners()
+      console.log("[v0] handleDeletePartner: Partner deleted, reloading list...")
+      
+      const listResponse = await fetch("/api/partners/list")
+      const listResult = await listResponse.json()
+      
+      if (listResult.success) {
+        console.log("[v0] handleDeletePartner: Setting partners state with", listResult.data.length, "partners")
+        setPartners(listResult.data)
+      }
 
       alert("Parceiro excluído com sucesso!")
     } catch (error: any) {
-      console.error("[v0] Error deleting partner:", error)
+      console.error("[v0] handleDeletePartner: Error occurred:", error)
       alert("Erro ao excluir parceiro: " + error.message)
     }
   }
@@ -1010,22 +1029,38 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleDeleteSculpture = async (sculptureId: number) => {
+  const handleDeleteSculpture = async (sculptureId: string) => {
     if (!confirm("Tem certeza que deseja excluir esta escultura?")) {
       return
     }
 
-    const supabase = getSupabase()
-    const { error } = await supabase.from("sculptures").delete().eq("id", sculptureId)
+    try {
+      console.log("[v0] handleDeleteSculpture: Deleting sculpture ID:", sculptureId)
+      
+      const response = await fetch(`/api/sculptures/delete?id=${sculptureId}`, {
+        method: "DELETE",
+      })
 
-    if (error) {
-      console.error("[v0] Error deleting sculpture:", error)
-      alert("Erro ao excluir escultura. Tente novamente.")
-      return
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Erro ao excluir escultura")
+      }
+
+      console.log("[v0] handleDeleteSculpture: Sculpture deleted, reloading list...")
+      
+      const listResponse = await fetch("/api/sculptures/list")
+      const listResult = await listResponse.json()
+      
+      if (listResult.success) {
+        console.log("[v0] handleDeleteSculpture: Setting sculptures state with", listResult.data.length, "sculptures")
+        setSculptures(listResult.data)
+      }
+
+      alert("Escultura excluída com sucesso!")
+    } catch (error: any) {
+      console.error("[v0] handleDeleteSculpture: Error occurred:", error)
+      alert("Erro ao excluir escultura: " + error.message)
     }
-
-    setSculptures(sculptures.filter((s) => s.id !== sculptureId)) // This line was causing the error, but sculptures state is now declared
-    alert("Escultura excluída com sucesso!")
   }
 
   const handleCancelEdit = () => {
@@ -2405,7 +2440,7 @@ export default function AdminDashboard() {
                       id="sculpture-curiosity"
                       value={newSculpture.curiosity}
                       onChange={(e) => setNewSculpture({ ...newSculpture, curiosity: e.target.value })}
-                      placeholder="Curiosidade sobre a escultura..."
+                      placeholder="Curiosidades sobre a escultura..."
                       className="min-h-[100px] text-base"
                     />
                   </div>
