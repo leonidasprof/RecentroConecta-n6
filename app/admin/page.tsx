@@ -151,6 +151,9 @@ const handlePrintQRCode = (sculpture: any) => {
 }
 
 export default function AdminDashboard() {
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const forceRefresh = () => setRefreshTrigger(prev => prev + 1)
+
   const [newEmployee, setNewEmployee] = useState({ name: "", email: "", role: "" })
   const [employees, setEmployees] = useState<any[]>([])
   const [editingEmployee, setEditingEmployee] = useState<any>(null)
@@ -249,6 +252,7 @@ export default function AdminDashboard() {
         console.log("[v0] Loaded employees count:", result.data.length)
         console.log("[v0] Loaded employees:", result.data)
         setEmployees(result.data)
+        forceRefresh() // Force component re-render
       } else {
         console.error("[v0] Failed to load employees:", result.error)
       }
@@ -470,6 +474,7 @@ export default function AdminDashboard() {
       if (listResult.success) {
         console.log("[v0] handleDeleteEmployee: Setting employees state with", listResult.data.length, "employees")
         setEmployees(listResult.data)
+        forceRefresh() // Force re-render
       }
 
       alert("Funcionário excluído com sucesso!")
@@ -489,7 +494,6 @@ export default function AdminDashboard() {
     setNewEmployee({ name: "", email: "", role: "" })
   }
 
-  // Updated handleCreateEmployee function
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -526,6 +530,7 @@ export default function AdminDashboard() {
       if (listResult.success) {
         console.log("[v0] handleCreateEmployee: Setting employees state with", listResult.data.length, "employees")
         setEmployees(listResult.data)
+        forceRefresh() // Force re-render
       }
 
       alert(
@@ -605,8 +610,10 @@ export default function AdminDashboard() {
     try {
       console.log("[v0] handleDeletePartner: Deleting partner ID:", partnerId)
       
-      const response = await fetch(`/api/partners/delete?id=${partnerId}`, {
+      const response = await fetch("/api/partners/delete", {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ partnerId }),
       })
 
       if (!response.ok) {
@@ -622,6 +629,7 @@ export default function AdminDashboard() {
       if (listResult.success) {
         console.log("[v0] handleDeletePartner: Setting partners state with", listResult.data.length, "partners")
         setPartners(listResult.data)
+        forceRefresh() // Force re-render
       }
 
       alert("Parceiro excluído com sucesso!")
@@ -636,7 +644,6 @@ export default function AdminDashboard() {
     setNewPartner({ name: "", type: "", contact: "", email: "", phone: "", address: "" })
   }
 
-  // Updated handleCreatePartner function
   const handleCreatePartner = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -678,6 +685,7 @@ export default function AdminDashboard() {
       if (listResult.success) {
         console.log("[v0] handleCreatePartner: Setting partners state with", listResult.data.length, "partners")
         setPartners(listResult.data)
+        forceRefresh() // Force re-render
       }
 
       alert(`Parceiro cadastrado com sucesso!\nNome: ${newPartner.name}\nOrganização: ${newPartner.type}`)
@@ -868,7 +876,6 @@ export default function AdminDashboard() {
     }
   }
 
-  // Updated handleCreateSculpture function
   const handleCreateSculpture = async () => {
     try {
       console.log("[v0] handleCreateSculpture: Starting sculpture creation")
@@ -925,6 +932,7 @@ export default function AdminDashboard() {
       if (listResult.success) {
         console.log("[v0] handleCreateSculpture: Setting sculptures state with", listResult.data.length, "sculptures")
         setSculptures(listResult.data)
+        forceRefresh() // Force re-render
       }
 
       // Reset form
@@ -1054,6 +1062,7 @@ export default function AdminDashboard() {
       if (listResult.success) {
         console.log("[v0] handleDeleteSculpture: Setting sculptures state with", listResult.data.length, "sculptures")
         setSculptures(listResult.data)
+        forceRefresh() // Force re-render
       }
 
       alert("Escultura excluída com sucesso!")
@@ -1956,7 +1965,7 @@ export default function AdminDashboard() {
                     <p className="text-sm">Clique em "Cadastrar Novo Funcionário" para começar.</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div key={`employees-${refreshTrigger}`} className="space-y-4">
                     {employees.map((employee) => (
                       <div
                         key={employee.id}
@@ -2224,46 +2233,54 @@ export default function AdminDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {partners.map((partner) => (
-                    <div
-                      key={partner.id}
-                      className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#16A34A] to-[#1ed5bb] flex items-center justify-center text-white">
-                          {getPartnerIcon(partner.organization)}
+                {partners.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Building className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-semibold">Nenhum parceiro cadastrado ainda.</p>
+                    <p className="text-sm">Clique em "Cadastrar Novo Parceiro" para começar.</p>
+                  </div>
+                ) : (
+                  <div key={`partners-${refreshTrigger}`} className="space-y-4">
+                    {partners.map((partner) => (
+                      <div
+                        key={partner.id}
+                        className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#16A34A] to-[#1ed5bb] flex items-center justify-center text-white">
+                            {getPartnerIcon(partner.organization)}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-lg">{partner.name}</h4>
+                            <p className="text-sm text-muted-foreground">Organização: {partner.organization}</p>
+                            {partner.email && <p className="text-sm text-muted-foreground">Email: {partner.email}</p>}
+                            {partner.phone && <p className="text-sm text-muted-foreground">Telefone: {partner.phone}</p>}
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-lg">{partner.name}</h4>
-                          <p className="text-sm text-muted-foreground">Organização: {partner.organization}</p>
-                          {partner.email && <p className="text-sm text-muted-foreground">Email: {partner.email}</p>}
-                          {partner.phone && <p className="text-sm text-muted-foreground">Telefone: {partner.phone}</p>}
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => handleEditPartner(partner)}
+                            variant="outline"
+                            size="sm"
+                            className="bg-transparent hover:bg-blue-50"
+                          >
+                            <Edit2 className="w-4 h-4 mr-1" />
+                            Editar
+                          </Button>
+                          <Button
+                            onClick={() => handleDeletePartner(partner.id)}
+                            variant="outline"
+                            size="sm"
+                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Excluir
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => handleEditPartner(partner)}
-                          variant="outline"
-                          size="sm"
-                          className="bg-transparent hover:bg-blue-50"
-                        >
-                          <Edit2 className="w-4 h-4 mr-1" />
-                          Editar
-                        </Button>
-                        <Button
-                          onClick={() => handleDeletePartner(partner.id)}
-                          variant="outline"
-                          size="sm"
-                          className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          Excluir
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -2485,7 +2502,7 @@ export default function AdminDashboard() {
             <Card className="modern-card">
               <CardContent className="space-y-4">
                 {filteredSculptures.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
+                  <div className="text-center py-8 text-muted-foreground">
                     <Package className="w-16 h-16 mx-auto mb-4 opacity-20" />
                     {sculptureSearchQuery ? (
                       <>
@@ -2500,81 +2517,83 @@ export default function AdminDashboard() {
                     )}
                   </div>
                 ) : (
-                  filteredSculptures.map((sculpture) => (
-                    <div
-                      key={sculpture.id}
-                      className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 to-orange-100 border-2 border-amber-200">
-                          {sculpture.image_url && !sculpture.image_url.includes("placeholder.svg") ? (
-                            <img
-                              src={sculpture.image_url || "/placeholder.svg"}
-                              alt={sculpture.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                console.log(
-                                  "[v0] Image failed to load for sculpture:",
-                                  sculpture.name,
-                                  "URL:",
-                                  sculpture.image_url,
-                                )
-                                e.currentTarget.style.display = "none"
-                                e.currentTarget.parentElement!.innerHTML =
-                                  `<div class="w-full h-full flex items-center justify-center"><svg class="w-10 h-10 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></div>`
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="w-10 h-10 text-amber-400" />
-                              <span className="sr-only">Sem imagem</span>
-                            </div>
-                          )}
+                  <div key={`sculptures-${refreshTrigger}`} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredSculptures.map((sculpture) => (
+                      <div
+                        key={sculpture.id}
+                        className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gradient-to-br from-amber-100 to-orange-100 border-2 border-amber-200">
+                            {sculpture.image_url && !sculpture.image_url.includes("placeholder.svg") ? (
+                              <img
+                                src={sculpture.image_url || "/placeholder.svg"}
+                                alt={sculpture.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  console.log(
+                                    "[v0] Image failed to load for sculpture:",
+                                    sculpture.name,
+                                    "URL:",
+                                    sculpture.image_url,
+                                  )
+                                  e.currentTarget.style.display = "none"
+                                  e.currentTarget.parentElement!.innerHTML =
+                                    `<div class="w-full h-full flex items-center justify-center"><svg class="w-10 h-10 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg></div>`
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Package className="w-10 h-10 text-amber-400" />
+                                <span className="sr-only">Sem imagem</span>
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-lg">{sculpture.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Número: {sculpture.sculpture_number} {/* Display sculpture number */}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Código: ESC{String(sculpture.code).padStart(3, "0")}
+                            </p>
+                            <p className="text-xs text-muted-foreground line-clamp-1">{sculpture.description}</p>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-lg">{sculpture.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Número: {sculpture.sculpture_number} {/* Display sculpture number */}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Código: ESC{String(sculpture.code).padStart(3, "0")}
-                          </p>
-                          <p className="text-xs text-muted-foreground line-clamp-1">{sculpture.description}</p>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              handleEditSculpture(sculpture)
+                            }}
+                            className="bg-transparent hover:bg-blue-50 w-full sm:w-auto"
+                          >
+                            <Pencil className="w-4 h-4 mr-1" />
+                            Editar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteSculpture(sculpture.id)}
+                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700 w-full sm:w-auto"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Excluir
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePrintQRCode(sculpture)}
+                            className="bg-transparent hover:bg-amber-50 text-amber-600 hover:text-amber-700 w-full sm:w-auto"
+                          >
+                            <Printer className="w-4 h-4 mr-1" />
+                            QR Code
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            handleEditSculpture(sculpture)
-                          }}
-                          className="bg-transparent hover:bg-blue-50 w-full sm:w-auto"
-                        >
-                          <Pencil className="w-4 h-4 mr-1" />
-                          Editar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteSculpture(sculpture.id)}
-                          className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700 w-full sm:w-auto"
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          Excluir
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePrintQRCode(sculpture)}
-                          className="bg-transparent hover:bg-amber-50 text-amber-600 hover:text-amber-700 w-full sm:w-auto"
-                        >
-                          <Printer className="w-4 h-4 mr-1" />
-                          QR Code
-                        </Button>
-                      </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>
