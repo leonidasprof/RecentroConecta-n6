@@ -1996,12 +1996,13 @@ export default function AdminDashboard() {
                               {employee.email} • {employee.role}
                             </p>
                           </div>
-                          <div className="flex flex-col sm:flex-row gap-2">
+                          {/* CHANGE: Changed button layout from horizontal to vertical */}
+                          <div className="flex flex-col gap-2">
                             <Button
                               onClick={() => handleEditEmployee(employee)}
                               variant="outline"
                               size="sm"
-                              className="bg-transparent hover:bg-blue-50 w-full sm:w-auto"
+                              className="bg-transparent hover:bg-blue-50 w-full"
                             >
                               <Edit2 className="w-4 h-4 mr-1" />
                               Editar
@@ -2010,7 +2011,7 @@ export default function AdminDashboard() {
                               onClick={() => handleEditPassword(employee)}
                               variant="outline"
                               size="sm"
-                              className="bg-transparent hover:bg-purple-50 text-purple-600 hover:text-purple-700 w-full sm:w-auto"
+                              className="bg-transparent hover:bg-purple-50 text-purple-600 hover:text-purple-700 w-full"
                             >
                               🔒 Senha
                             </Button>
@@ -2018,7 +2019,7 @@ export default function AdminDashboard() {
                               onClick={() => handleDeleteEmployee(employee.id)}
                               variant="outline"
                               size="sm"
-                              className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700 w-full sm:w-auto"
+                              className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700 w-full"
                             >
                               <Trash2 className="w-4 h-4 mr-1" />
                               Excluir
@@ -2285,12 +2286,13 @@ export default function AdminDashboard() {
                             {partner.phone && <p className="text-sm text-muted-foreground">Telefone: {partner.phone}</p>}
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        {/* CHANGE: Changed button layout from horizontal to vertical */}
+                        <div className="flex flex-col gap-2">
                           <Button
                             onClick={() => handleEditPartner(partner)}
                             variant="outline"
                             size="sm"
-                            className="bg-transparent hover:bg-blue-50"
+                            className="bg-transparent hover:bg-blue-50 w-full"
                           >
                             <Edit2 className="w-4 h-4 mr-1" />
                             Editar
@@ -2299,7 +2301,7 @@ export default function AdminDashboard() {
                             onClick={() => handleDeletePartner(partner.id)}
                             variant="outline"
                             size="sm"
-                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700"
+                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700 w-full"
                           >
                             <Trash2 className="w-4 h-4 mr-1" />
                             Excluir
@@ -2588,14 +2590,15 @@ export default function AdminDashboard() {
                             <p className="text-xs text-muted-foreground line-clamp-1">{sculpture.description}</p>
                           </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2">
+                        {/* CHANGE: Changed button layout from horizontal to vertical */}
+                        <div className="flex flex-col gap-2">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => {
                               handleEditSculpture(sculpture)
                             }}
-                            className="bg-transparent hover:bg-blue-50 w-full sm:w-auto"
+                            className="bg-transparent hover:bg-blue-50 w-full"
                           >
                             <Pencil className="w-4 h-4 mr-1" />
                             Editar
@@ -2604,7 +2607,7 @@ export default function AdminDashboard() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleDeleteSculpture(sculpture.id)}
-                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700 w-full sm:w-auto"
+                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700 w-full"
                           >
                             <Trash2 className="w-4 h-4 mr-1" />
                             Excluir
@@ -2613,7 +2616,7 @@ export default function AdminDashboard() {
                             variant="outline"
                             size="sm"
                             onClick={() => handlePrintQRCode(sculpture)}
-                            className="bg-transparent hover:bg-amber-50 text-amber-600 hover:text-amber-700 w-full sm:w-auto"
+                            className="bg-transparent hover:bg-amber-50 text-amber-600 hover:text-amber-700 w-full"
                           >
                             <Printer className="w-4 h-4 mr-1" />
                             QR Code
