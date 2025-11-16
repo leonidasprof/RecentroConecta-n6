@@ -250,7 +250,14 @@ export default function AdminDashboard() {
   const loadEmployees = async () => {
     try {
       console.log("[v0] Loading employees...")
-      const response = await fetch("/api/employees/list")
+      const response = await fetch("/api/employees/list", {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+      })
       const result = await response.json()
 
       console.log("[v0] Employees API response:", result)
