@@ -78,10 +78,11 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={handleBackdropClick}
     >
-      <Card className="w-full max-w-md shadow-2xl rounded-2xl p-0 border-0" onClick={(e) => e.stopPropagation()}>
-        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-20 m-0">
-          <div className="absolute inset-0 bg-gradient-to-b from-blue-900/90 via-blue-800/80 to-cyan-700/90" />
-
+      <Card
+        className="w-full max-w-md shadow-2xl rounded-2xl p-0 border-0 bg-white"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-20 m-0 bg-gradient-to-r from-slate-800 to-slate-700">
           <Button
             variant="ghost"
             size="sm"
@@ -97,7 +98,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
           </div>
         </CardHeader>
 
-        <CardContent className="p-6 space-y-4">
+        <CardContent className="p-6 space-y-4 bg-white">
           <div>
             <Label htmlFor="username" className="text-base font-medium">
               Email
