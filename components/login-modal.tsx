@@ -60,16 +60,21 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     }
   }
 
-  const handleClose = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    console.log("[v0] Login modal close button clicked")
+  const handleClose = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    console.log("[v0] Login modal closing")
+    setCredentials({ username: "", password: "" })
+    setError("")
     onClose()
   }
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
-      onClose()
+      console.log("[v0] Backdrop clicked, closing modal")
+      handleClose()
     }
   }
 
@@ -82,14 +87,16 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         className="w-full max-w-md shadow-2xl rounded-2xl p-0 border-0 bg-white"
         onClick={(e) => e.stopPropagation()}
       >
-        <CardHeader className="relative rounded-t-lg overflow-hidden p-0 h-20 m-0 bg-gradient-to-r from-slate-800 to-slate-700">
+        <CardHeader className="relative rounded-t-2xl overflow-hidden p-0 h-20 m-0 bg-gradient-to-r from-slate-800 to-slate-700">
           <Button
+            type="button"
             variant="ghost"
-            size="sm"
-            onClick={handleClose}
-            className="absolute right-4 top-3 text-white hover:bg-white/20 rounded-full w-8 h-8 p-0 z-10 transition-all hover:scale-110"
+            size="icon"
+            onClick={(e) => handleClose(e)}
+            className="absolute right-3 top-3 text-white hover:bg-white/20 rounded-full w-10 h-10 p-0 z-20 transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
+            aria-label="Fechar"
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </Button>
 
           <div className="relative z-10 flex items-center justify-center h-full w-full text-white gap-2 px-6">

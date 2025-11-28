@@ -26,7 +26,41 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
-import { Users, TrendingUp, UserPlus, MessageSquare, Star, Home, Building2, Building, School, Hotel, Plane, Briefcase, MapPin, BarChart3, UserCog, Handshake, ImageIcon, Database, QrCode, Download, Camera, AlertCircle, Plus, Edit2, Trash2, Calendar, X, Pencil, Package, Loader2, Save, CheckCircle2, Upload, Printer } from 'lucide-react'
+import {
+  Users,
+  TrendingUp,
+  UserPlus,
+  MessageSquare,
+  Star,
+  Home,
+  Building2,
+  School,
+  Hotel,
+  Plane,
+  Briefcase,
+  MapPin,
+  BarChart3,
+  UserCog,
+  Handshake,
+  ImageIcon,
+  Database,
+  QrCode,
+  Download,
+  Camera,
+  AlertCircle,
+  Plus,
+  Edit2,
+  Trash2,
+  Calendar,
+  X,
+  Pencil,
+  Package,
+  Loader2,
+  Save,
+  CheckCircle2,
+  Upload,
+  Printer,
+} from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { getSupabase } from "@/lib/supabase"
@@ -251,11 +285,11 @@ export default function AdminDashboard() {
     try {
       console.log("[v0] Loading employees...")
       const response = await fetch("/api/employees/list", {
-        method: 'GET',
-        cache: 'no-store',
+        method: "GET",
+        cache: "no-store",
         headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
         },
       })
       const result = await response.json()
@@ -468,7 +502,7 @@ export default function AdminDashboard() {
 
     try {
       console.log("[v0] handleDeleteEmployee: Deleting employee ID:", employeeId)
-      
+
       const response = await fetch("/api/employees/delete", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -481,10 +515,10 @@ export default function AdminDashboard() {
       }
 
       console.log("[v0] handleDeleteEmployee: Employee deleted, reloading list...")
-      
+
       const listResponse = await fetch("/api/employees/list")
       const listResult = await listResponse.json()
-      
+
       if (listResult.success) {
         console.log("[v0] handleDeleteEmployee: Setting employees state with", listResult.data.length, "employees")
         setEmployees(listResult.data)
@@ -541,7 +575,7 @@ export default function AdminDashboard() {
       console.log("[v0] handleCreateEmployee: Fetching updated employees list directly...")
       const listResponse = await fetch("/api/employees/list")
       const listResult = await listResponse.json()
-      
+
       if (listResult.success) {
         console.log("[v0] handleCreateEmployee: Setting employees state with", listResult.data.length, "employees")
         setEmployees(listResult.data)
@@ -624,7 +658,7 @@ export default function AdminDashboard() {
 
     try {
       console.log("[v0] handleDeletePartner: Deleting partner ID:", partnerId)
-      
+
       const response = await fetch("/api/partners/delete", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -637,10 +671,10 @@ export default function AdminDashboard() {
       }
 
       console.log("[v0] handleDeletePartner: Partner deleted, reloading list...")
-      
+
       const listResponse = await fetch("/api/partners/list")
       const listResult = await listResponse.json()
-      
+
       if (listResult.success) {
         console.log("[v0] handleDeletePartner: Setting partners state with", listResult.data.length, "partners")
         setPartners(listResult.data)
@@ -692,11 +726,11 @@ export default function AdminDashboard() {
 
       const result = await response.json()
       console.log("[v0] handleCreatePartner: Partner created successfully:", result.data)
-      
+
       console.log("[v0] handleCreatePartner: Fetching updated partners list directly...")
       const listResponse = await fetch("/api/partners/list")
       const listResult = await listResponse.json()
-      
+
       if (listResult.success) {
         console.log("[v0] handleCreatePartner: Setting partners state with", listResult.data.length, "partners")
         setPartners(listResult.data)
@@ -943,7 +977,7 @@ export default function AdminDashboard() {
       console.log("[v0] handleCreateSculpture: Fetching updated sculptures list directly...")
       const listResponse = await fetch("/api/sculptures/list")
       const listResult = await listResponse.json()
-      
+
       if (listResult.success) {
         console.log("[v0] handleCreateSculpture: Setting sculptures state with", listResult.data.length, "sculptures")
         setSculptures(listResult.data)
@@ -1059,7 +1093,7 @@ export default function AdminDashboard() {
 
     try {
       console.log("[v0] handleDeleteSculpture: Deleting sculpture ID:", sculptureId)
-      
+
       const response = await fetch(`/api/sculptures/delete?id=${sculptureId}`, {
         method: "DELETE",
       })
@@ -1070,10 +1104,10 @@ export default function AdminDashboard() {
       }
 
       console.log("[v0] handleDeleteSculpture: Sculpture deleted, reloading list...")
-      
+
       const listResponse = await fetch("/api/sculptures/list")
       const listResult = await listResponse.json()
-      
+
       if (listResult.success) {
         console.log("[v0] handleDeleteSculpture: Setting sculptures state with", listResult.data.length, "sculptures")
         setSculptures(listResult.data)
@@ -1403,7 +1437,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50">
+    <div className="min-h-screen bg-gray-100">
       {/* Header */}
       <header className="header-navy text-white py-4 md:py-6 px-4 shadow-lg">
         <div className="container mx-auto flex items-center justify-between">
@@ -1496,7 +1530,7 @@ export default function AdminDashboard() {
           </TabsList>
 
           {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="space-y-6">
+          <TabsContent value="dashboard" className="space-y-6 bg-white p-6 rounded-xl shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <Card className="modern-card border-l-4 border-l-[#1694f2]">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -1882,7 +1916,7 @@ export default function AdminDashboard() {
             )}
           </TabsContent>
 
-          <TabsContent value="employees" className="space-y-6">
+          <TabsContent value="employees" className="space-y-6 bg-white p-6 rounded-xl shadow-sm">
             <Card className="modern-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -2098,7 +2132,7 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="partners" className="space-y-6">
+          <TabsContent value="partners" className="space-y-6 bg-white p-6 rounded-xl shadow-sm">
             <Card className="modern-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -2283,7 +2317,9 @@ export default function AdminDashboard() {
                             <h4 className="font-semibold text-lg">{partner.name}</h4>
                             <p className="text-sm text-muted-foreground">Organização: {partner.organization}</p>
                             {partner.email && <p className="text-sm text-muted-foreground">Email: {partner.email}</p>}
-                            {partner.phone && <p className="text-sm text-muted-foreground">Telefone: {partner.phone}</p>}
+                            {partner.phone && (
+                              <p className="text-sm text-muted-foreground">Telefone: {partner.phone}</p>
+                            )}
                           </div>
                         </div>
                         {/* CHANGE: Changed button layout from horizontal to vertical */}
@@ -2315,7 +2351,7 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="sculptures" className="space-y-6">
+          <TabsContent value="sculptures" className="space-y-6 bg-white p-6 rounded-xl shadow-sm">
             <Card className="modern-card border-2 border-amber-200">
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -2547,7 +2583,10 @@ export default function AdminDashboard() {
                     )}
                   </div>
                 ) : (
-                  <div key={`sculptures-${refreshTrigger}`} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div
+                    key={`sculptures-${refreshTrigger}`}
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                  >
                     {filteredSculptures.map((sculpture) => (
                       <div
                         key={sculpture.id}
@@ -2815,7 +2854,7 @@ export default function AdminDashboard() {
             )}
           </TabsContent>
 
-          <TabsContent value="data" className="space-y-6">
+          <TabsContent value="data" className="space-y-6 bg-white p-6 rounded-xl shadow-sm">
             <Card className="modern-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -2866,7 +2905,7 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="scanner" className="space-y-6">
+          <TabsContent value="scanner" className="space-y-6 bg-white p-6 rounded-xl shadow-sm">
             <Card className="modern-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
