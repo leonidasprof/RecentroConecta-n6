@@ -234,17 +234,17 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
         <CardContent className="p-6">
           {step === 1 && (
             <div className="space-y-4">
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4">
                 <Button
                   onClick={() => {
                     setTicketType("individual")
                     setStep(2)
                   }}
                   size="lg"
-                  className="h-20 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white"
+                  className="h-auto py-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white flex items-center justify-start gap-4"
                 >
-                  <User className="w-6 h-6 mr-3" />
-                  <div className="text-left">
+                  <User className="w-8 h-8 flex-shrink-0" />
+                  <div className="text-left flex-1">
                     <div className="font-bold text-lg">Ingresso Individual</div>
                     <div className="text-sm opacity-90">Para visitantes individuais</div>
                   </div>
@@ -258,10 +258,10 @@ export default function TicketModal({ isOpen, onClose }: TicketModalProps) {
                     window.dispatchEvent(event)
                   }}
                   size="lg"
-                  className="h-20 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                  className="h-auto py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white flex items-center justify-start gap-4"
                 >
-                  <Users className="w-6 h-6 mr-3" />
-                  <div className="text-left">
+                  <Users className="w-8 h-8 flex-shrink-0" />
+                  <div className="text-left flex-1">
                     <div className="font-bold text-lg">Ingresso Agendado</div>
                     <div className="text-sm opacity-90">Para grupos e organizações parceiras</div>
                   </div>

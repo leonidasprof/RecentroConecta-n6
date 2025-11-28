@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Heart, Info, Package } from "lucide-react"
+import { Heart, Info, Package, Ear, ArrowLeft } from "lucide-react"
+import Link from "next/link"
 
 interface Sculpture {
   id: string
@@ -17,6 +18,7 @@ interface Sculpture {
 export default function SculpturePublicView({ sculpture }: { sculpture: Sculpture }) {
   const [likes, setLikes] = useState(0)
   const [userLiked, setUserLiked] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
 
   console.log("[v0] Public view rendering sculpture:", {
     name: sculpture.name,
@@ -50,12 +52,58 @@ export default function SculpturePublicView({ sculpture }: { sculpture: Sculptur
     }
   }
 
+  const handleSpeak = () => {
+    if (!("speechSynthesis" in window)) {
+      alert("Desculpe, seu navegador não suporta leitura de texto.")
+      return
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel()
+      setIsSpeaking(false)
+      return
+    }
+
+    const textToSpeak = `${sculpture.name}. ${sculpture.description}. Curiosidade: ${sculpture.curiosity}`
+    const utterance = new SpeechSynthesisUtterance(textToSpeak)
+    utterance.lang = "pt-BR"
+    utterance.rate = 0.9
+    utterance.pitch = 1
+
+    utterance.onend = () => {
+      setIsSpeaking(false)
+    }
+
+    utterance.onerror = () => {
+      setIsSpeaking(false)
+      alert("Erro ao reproduzir o áudio. Tente novamente.")
+    }
+
+    window.speechSynthesis.speak(utterance)
+    setIsSpeaking(true)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
+
   const hasValidImage =
     sculpture.image_url && !sculpture.image_url.includes("placeholder.svg") && sculpture.image_url.startsWith("http")
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-100 via-blue-100 to-cyan-100 p-4">
       <div className="max-w-2xl mx-auto py-8">
+        <Link href="/">
+          <Button variant="ghost" className="mb-4 text-slate-600 hover:text-slate-800">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar para Explorar Esculturas
+          </Button>
+        </Link>
+
         <Card className="overflow-hidden shadow-2xl">
           <div className="relative h-80 bg-gradient-to-br from-purple-200 to-blue-200 flex items-center justify-center">
             {hasValidImage ? (
@@ -89,6 +137,18 @@ export default function SculpturePublicView({ sculpture }: { sculpture: Sculptur
           </div>
 
           <CardContent className="p-6 space-y-6">
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSpeak}
+                variant={isSpeaking ? "default" : "outline"}
+                size="lg"
+                className={`${isSpeaking ? "bg-blue-600 text-white" : "border-2 border-blue-500 text-blue-600 hover:bg-blue-50"}`}
+              >
+                <Ear className="w-5 h-5 mr-2" />
+                {isSpeaking ? "Pausar Áudio" : "Ouvir Descrição"}
+              </Button>
+            </div>
+
             <div>
               <h1 className="text-3xl font-bold text-gray-800 mb-2">{sculpture.name}</h1>
               <div className="flex items-start gap-2 text-gray-600 mb-4">

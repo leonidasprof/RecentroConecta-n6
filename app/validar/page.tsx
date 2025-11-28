@@ -126,6 +126,7 @@ export default function ValidarPage() {
 
         setScanning(false)
         setIsProcessing(false)
+        await loadDailyStats() // Reload stats after validation attempt
         return
       }
 
@@ -142,6 +143,7 @@ export default function ValidarPage() {
         })
         setScanning(false)
         setIsProcessing(false)
+        await loadDailyStats() // Reload stats after validation attempt
         return
       }
 
@@ -196,10 +198,11 @@ export default function ValidarPage() {
 
       setResult({
         success: true,
-        message: "Ingresso validado com sucesso! Presença registrada.",
+        message: "✓ ENTRADA VALIDADA COM SUCESSO! Bem-vindo ao Parque de Esculturas Francisco Brennand!",
         ticket: { ...ticket, is_validated: true, validated_at: validatedAt, validation_history: validationHistory },
       })
       setScanning(false)
+      await loadDailyStats() // Reload stats after successful validation
     } catch (error) {
       console.error("[v0] Validation error:", error)
       setResult({
