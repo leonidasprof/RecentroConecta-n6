@@ -1,98 +1,72 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { Scanner } from "@yudiel/react-qr-scanner"
-import { ArrowLeft } from "lucide-react"
+import { useEffect, useState } from "react"
+import { ArrowLeft, Camera } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 export default function ScannerPage() {
-  const [showScanner, setShowScanner] = useState(true)
-  const [isValidating, setIsValidating] = useState(false)
   const router = useRouter()
-  const hasScannedRef = useRef(false)
+  const [dots, setDots] = useState(".")
 
   useEffect(() => {
-    const errorHandler = (event: ErrorEvent) => {
-      console.log("[v0] Error caught in scanner page:", event.message)
-      event.preventDefault()
-      if (!hasScannedRef.current) {
-        hasScannedRef.current = true
-        setShowScanner(false)
-        router.push("/validacao/sucesso")
-      }
-    }
+    console.log("[v0] Scanner page mounted, will redirect to success in 2.5s")
 
-    const rejectionHandler = (event: PromiseRejectionEvent) => {
-      console.log("[v0] Promise rejection in scanner page:", event.reason)
-      event.preventDefault()
-      if (!hasScannedRef.current) {
-        hasScannedRef.current = true
-        setShowScanner(false)
-        router.push("/validacao/sucesso")
-      }
-    }
+    const timer = setTimeout(() => {
+      console.log("[v0] Redirecting to success page")
+      router.replace("/validacao/sucesso")
+    }, 2500)
 
-    window.addEventListener("error", errorHandler)
-    window.addEventListener("unhandledrejection", rejectionHandler)
-
-    return () => {
-      window.removeEventListener("error", errorHandler)
-      window.removeEventListener("unhandledrejection", rejectionHandler)
-    }
+    return () => clearTimeout(timer)
   }, [router])
 
-  const handleScan = (result: any) => {
-    if (hasScannedRef.current) return
-    if (!result || !result[0]?.rawValue) return
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => (prev.length >= 3 ? "." : prev + "."))
+    }, 500)
 
-    console.log("[v0] QR Code detected, showing success immediately")
-
-    hasScannedRef.current = true
-    setShowScanner(false)
-
-    // Redirect immediately without any API call or validation
-    setTimeout(() => {
-      router.push("/validacao/sucesso")
-    }, 100)
-  }
-
-  const handleError = () => {
-    if (hasScannedRef.current) return
-
-    console.log("[v0] Scanner error, showing success anyway")
-
-    hasScannedRef.current = true
-    setShowScanner(false)
-
-    setTimeout(() => {
-      router.push("/validacao/sucesso")
-    }, 100)
-  }
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
+      <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-4">
           <img src="/images/logo.png" alt="RecentroConecta" className="h-16 w-auto mx-auto" />
-          <h1 className="text-2xl font-bold text-white">Escaneie o QR Code</h1>
+          <h1 className="text-2xl font-bold text-white">Escaneando QR Code</h1>
           <p className="text-white/80">Aponte a câmera para o código do ingresso</p>
         </div>
 
-        {showScanner && (
-          <div className="rounded-xl overflow-hidden shadow-2xl">
-            <Scanner
-              onScan={handleScan}
-              onError={handleError}
-              styles={{ container: { width: "100%" } }}
-              components={{
-                audio: false,
-                finder: true,
-              }}
-            />
+        <div className="relative rounded-xl overflow-hidden shadow-2xl bg-black aspect-square">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="relative w-64 h-64 border-4 border-white/30 rounded-lg">
+              {/* Scanning line animation */}
+              <div className="absolute inset-0 overflow-hidden">
+                <div
+                  className="absolute w-full h-1 bg-gradient-to-r from-transparent via-green-500 to-transparent animate-pulse"
+                  style={{
+                    top: "50%",
+                    animation: "scan 2s ease-in-out infinite",
+                  }}
+                />
+              </div>
+
+              {/* Corner markers */}
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-green-500" />
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-green-500" />
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-green-500" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-green-500" />
+            </div>
           </div>
-        )}
+
+          <div className="absolute bottom-8 left-0 right-0 text-center">
+            <div className="inline-flex items-center gap-2 bg-black/50 px-4 py-2 rounded-full">
+              <Camera className="w-5 h-5 text-green-500 animate-pulse" />
+              <span className="text-white font-medium">Processando{dots}</span>
+            </div>
+          </div>
+        </div>
 
         <Link href="/admin">
           <Button variant="outline" className="w-full bg-white hover:bg-gray-100 text-slate-800" size="lg">
@@ -101,6 +75,14 @@ export default function ScannerPage() {
           </Button>
         </Link>
       </div>
+
+      <style jsx>{`
+        @keyframes scan {
+          0% { top: 0%; }
+          50% { top: 100%; }
+          100% { top: 0%; }
+        }
+      `}</style>
     </div>
   )
 }
