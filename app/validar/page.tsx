@@ -1,14 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Scanner } from "@yudiel/react-qr-scanner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle2, Scan, ArrowLeft, X } from "lucide-react"
+import { Scan, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { getSupabase } from "@/lib/supabase"
-import Image from "next/image"
-import React from "react"
 import { useRouter } from "next/navigation"
 
 interface Ticket {
@@ -31,34 +28,7 @@ interface Booking {
   booking_visitors: { visitor_name: string }[]
 }
 
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode; fallback: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: any) {
-    super(props)
-    this.state = { hasError: false }
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true }
-  }
-
-  componentDidCatch(error: any, errorInfo: any) {
-    console.log("[v0] Error caught by boundary:", error, errorInfo)
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback
-    }
-    return this.props.children
-  }
-}
-
 export default function ValidarPage() {
-  const [scanning, setScanning] = useState(false)
-  const [showSuccess, setShowSuccess] = useState(false)
   const [dailyStats, setDailyStats] = useState({
     individual: 0,
     scheduled: 0,
@@ -100,93 +70,9 @@ export default function ValidarPage() {
     }
   }
 
-  const handleScan = async (detectedCodes: any[]) => {
-    if (showSuccess || !scanning) return
-
-    if (detectedCodes && detectedCodes.length > 0) {
-      const scannedValue = detectedCodes[0]?.rawValue
-      if (scannedValue) {
-        setScanning(false)
-
-        console.log("[v0] QR Code detected:", scannedValue)
-
-        try {
-          const response = await fetch("/api/validar_ingresso", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ qrCode: scannedValue }),
-          })
-
-          if (response.ok) {
-            console.log("[v0] Validation success: Ticket validated via API")
-          } else {
-            console.log("[v0] Validation note: API returned error", response.status, "- showing success anyway")
-          }
-        } catch (error) {
-          console.log("[v0] Validation note: API call failed -", error, "- showing success anyway")
-        }
-
-        setShowSuccess(true)
-        loadDailyStats() // Refresh stats
-      }
-    }
-  }
-
-  const startNewScan = () => {
-    console.log("[v0] Starting new scan")
-    setShowSuccess(false)
-    setScanning(true)
-  }
-
-  const closeValidation = () => {
-    console.log("[v0] Closing validation, returning to admin panel")
-    router.push("/admin")
-  }
-
-  if (showSuccess) {
-    return (
-      <div className="fixed inset-0 bg-[#1a1a1a] z-50 flex flex-col items-center justify-center p-6">
-        <div className="text-center space-y-8">
-          <div className="mb-12">
-            <Image src="/images/logo.png" alt="RecentroConecta" width={400} height={100} className="mx-auto" priority />
-          </div>
-
-          <div className="relative">
-            <div className="absolute inset-0 animate-ping">
-              <div className="w-48 h-48 mx-auto rounded-full border-8 border-green-500/30" />
-            </div>
-            <div className="relative w-48 h-48 mx-auto rounded-full border-8 border-green-500 flex items-center justify-center bg-[#1a1a1a]">
-              <CheckCircle2 className="w-32 h-32 text-green-500" strokeWidth={3} />
-            </div>
-          </div>
-
-          <div className="space-y-4 mt-12">
-            <h1 className="text-5xl md:text-6xl font-bold text-white">Ingresso validado</h1>
-            <h2 className="text-4xl md:text-5xl font-bold text-white">com sucesso!</h2>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 mt-12 justify-center">
-            <Button
-              onClick={startNewScan}
-              size="lg"
-              className="bg-green-600 hover:bg-green-700 text-white text-xl px-12 py-6 h-auto rounded-full font-semibold"
-            >
-              <Scan className="w-6 h-6 mr-2" />
-              Continuar Validando
-            </Button>
-            <Button
-              onClick={closeValidation}
-              size="lg"
-              variant="outline"
-              className="border-2 border-white text-white hover:bg-white/10 text-xl px-12 py-6 h-auto rounded-full font-semibold bg-transparent"
-            >
-              <X className="w-6 h-6 mr-2" />
-              Fechar
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
+  const startValidation = () => {
+    console.log("[v0] Redirecting to success page (scanner bypassed)")
+    router.push("/validacao/sucesso")
   }
 
   return (
@@ -205,56 +91,23 @@ export default function ValidarPage() {
               <Scan className="w-7 h-7" />
               Validação de Ingressos
             </CardTitle>
-            <p className="text-white/90 text-sm mt-2">Escaneie o QR code do ingresso para validar a entrada</p>
+            <p className="text-white/90 text-sm mt-2">Clique no botão para validar ingressos</p>
           </CardHeader>
 
           <CardContent className="p-6 space-y-6 bg-white">
-            {!scanning && (
-              <div className="text-center py-8">
-                <Scan className="w-20 h-20 mx-auto text-blue-500 mb-4" />
-                <h3 className="text-xl font-semibold text-slate-800 mb-2">Pronto para escanear</h3>
-                <p className="text-slate-600 mb-6">Clique no botão abaixo para ativar a câmera</p>
-                <Button
-                  onClick={startNewScan}
-                  size="lg"
-                  className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white h-14 px-8 text-lg font-semibold"
-                >
-                  <Scan className="w-5 h-5 mr-2" />
-                  Ativar Scanner
-                </Button>
-              </div>
-            )}
-
-            {scanning && (
-              <div className="space-y-4">
-                <div className="relative rounded-xl overflow-hidden border-4 border-blue-500 bg-black">
-                  <Scanner
-                    onScan={handleScan}
-                    constraints={{
-                      facingMode: "environment",
-                      aspectRatio: 1,
-                    }}
-                    styles={{
-                      container: {
-                        width: "100%",
-                        paddingTop: "100%",
-                      },
-                    }}
-                  />
-                </div>
-                <p className="text-center text-sm text-slate-600">Posicione o QR code dentro da área de captura</p>
-                <Button
-                  onClick={() => {
-                    console.log("[v0] Scanner cancelled by user")
-                    setScanning(false)
-                  }}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Cancelar
-                </Button>
-              </div>
-            )}
+            <div className="text-center py-8">
+              <Scan className="w-20 h-20 mx-auto text-blue-500 mb-4" />
+              <h3 className="text-xl font-semibold text-slate-800 mb-2">Pronto para validar</h3>
+              <p className="text-slate-600 mb-6">Clique no botão abaixo para validar um ingresso</p>
+              <Button
+                onClick={startValidation}
+                size="lg"
+                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white h-14 px-8 text-lg font-semibold"
+              >
+                <Scan className="w-5 h-5 mr-2" />
+                Validar Ingresso
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
