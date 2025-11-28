@@ -57,11 +57,11 @@ export default function ValidarPage() {
 
   const startValidation = () => {
     try {
-      console.log("[v0] Validating - redirecting to success page")
-      window.location.replace("/validacao/sucesso")
+      console.log("[v0] Opening scanner")
+      window.location.href = "/validacao/scanner"
     } catch (error) {
       console.log("[v0] Fallback redirect")
-      window.location.href = "/validacao/sucesso"
+      window.location.replace("/validacao/scanner")
     }
   }
 
